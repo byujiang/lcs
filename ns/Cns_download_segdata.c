@@ -20,7 +20,7 @@
 
 #define MEMSIZE (1024*1024+10)
 
-int Cns_download_seg(const char *path, off_t offset, size_t size, char *location, int filesize, char *buff)
+int Cns_download_seg(const char *path, off_t offset, size_t size, char *location, size_t filesize, char *buff)
 {
 	char *actual_path;
 	int msglen;
@@ -31,7 +31,7 @@ int Cns_download_seg(const char *path, off_t offset, size_t size, char *location
 	char func[16];
 	char sendbuf[REQBUFSZ];
 	int c;	
-	int res;
+	int res=-1;
 	char server[CA_MAXHOSTNAMELEN+1];
 	struct Cns_api_thread_info *thip;
 	char *repbuf=(char *)malloc(MEMSIZE);
@@ -76,10 +76,10 @@ int Cns_download_seg(const char *path, off_t offset, size_t size, char *location
         marshall_HYPER (sbp, thip->cwd);
       	
         marshall_STRING (sbp, actual_path);
-	 marshall_LONG (sbp, offset);
-	 marshall_LONG (sbp, size);
+	 marshall_HYPER (sbp, offset);
+	 marshall_HYPER (sbp, size);
 	marshall_STRING (sbp, location);
-	marshall_LONG(sbp, filesize);
+	marshall_HYPER (sbp, filesize);
 	if(buff!=NULL){
 		buff_tag=1;
 	}

@@ -21,13 +21,39 @@
 *.dylib
 
 # Executables
+bin/
 *.exe
 *.out
 *.app
 *.i*86
 *.x86_64
 *.hex
+ns/Data_daemon
+ns/iget
+ns/ilist
+ns/iput
+ns/nscat
+ns/nschclass
+ns/nschmod
+ns/nschown
+ns/nsdaemon
+ns/nsdelactualpath
+ns/sen
 
 # Debug files
 *.dSYM/
 *.su
+
+
+# test
+ns/ceshi.sh
+git_update.sh
+
+# man
+ns/man
+
+
+# Web
+web
+# Transfer
+transfer

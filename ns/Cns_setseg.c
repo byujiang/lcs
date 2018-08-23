@@ -15,7 +15,7 @@
 #include "Cns.h"
 #include "serrno.h"
 
-int Cns_set_segmetadata_by_fd(const char *path, int fd,  int size, char *pysic_path, int bitmap_num)
+int Cns_set_segmetadata_by_fd(const char *path, int fd,  size_t size, char *pysic_path, int bitmap_num)
 {
 	char *actual_path;
 	int c;
@@ -71,7 +71,7 @@ int Cns_set_segmetadata_by_fd(const char *path, int fd,  int size, char *pysic_p
 	marshall_HYPER (sbp, thip->cwd);
 	marshall_STRING (sbp, path);
 	marshall_LONG (sbp, fd);
-	marshall_LONG (sbp, size);
+	marshall_HYPER (sbp, size);
 	marshall_STRING (sbp, actual_path);
 	marshall_LONG (sbp, bitmap_num);
 	msglen = sbp - sendbuf;

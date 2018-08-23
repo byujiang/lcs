@@ -12,7 +12,7 @@
 #include "Cns.h"
 #include "serrno.h"
 
-int Cns_cat_segmetadata(const char *path,char * data_path,int *fd, int *filesize, int * mode)
+int Cns_cat_segmetadata(const char *path,char * data_path,int *fd, size_t *filesize, int * mode)
 {
 	char *actual_path;
 	int c;
@@ -71,7 +71,7 @@ int Cns_cat_segmetadata(const char *path,char * data_path,int *fd, int *filesize
 		rbp = repbuf;
 		unmarshall_STRING (rbp, data_path);
 		unmarshall_LONG(rbp, *fd);
-		unmarshall_LONG(rbp, *filesize);
+		unmarshall_HYPER(rbp, *filesize);
 		unmarshall_LONG(rbp, *mode);
 	}
 	if (c && serrno == SENAMETOOLONG) serrno = ENAMETOOLONG;

@@ -1,26 +1,15 @@
-from tornado.httpclient import HTTPRequest, AsyncHTTPClient
-from tornado.simple_httpclient import SimpleAsyncHTTPClient
-import tornado.ioloop
-import tornado.web
-import os,sys,re,time
-from tornado import gen
-from functools import partial
-import urllib.parse
-import mimetypes
-import math
-from concurrent.futures import ThreadPoolExecutor
-import tornado.iostream
-from tornado.escape import utf8
-from tornado.log import gen_log
-from ctypes import *
-import struct
+#!/usr/local/bin/python3
+
+import pdb
 import logging
-import subprocess
+import threading
+import os,sys,time
+import struct
+from tornado.httpclient import HTTPClient
+from tornado.httpclient import AsyncHTTPClient
+from tornado.concurrent import Future
 
-readchunky = False
-total_downloaded = 0
-
-DEBUG = False
+CHUNKSIZE=80*1024*1024
 
 logging.basicConfig(level=logging.DEBUG,
                 format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
@@ -28,93 +17,83 @@ logging.basicConfig(level=logging.DEBUG,
                 filename='/usr/spool/ns/client_log',
                 filemode='a+')
 
-def geturlread(action,host,filepath,uid,gid,pos,size):
-    if action=="read":
-        url = "http://"+host+"/read?filepath="+filepath+"&uid="+uid+"&gid="+gid+"&pos="+str(pos)+"&size="+str(size)
-        logging.debug(url) 
-        return url
+def geturl_read(host,filepath,uid,gid,pos,size):
+    url = "http://"+host+"/read?filepath="+filepath+"&uid="+uid+"&gid="+gid+"&pos="+str(pos)+"&size="+str(size)
+    print(url)
+    return url
 
-def sizebwchunky(chunk):
-   global FILESIZE
-   FILESIZE = int(chunk)
+def fetch(host,filepath,uid,gid,pos,size):
+    url=geturl_read(host,filepath,uid,gid,pos,size)
+    logging.debug(url)
+    http_client=HTTPClient()
+    response=http_client.fetch(url)
+#    http_client=AsyncHTTPClient()
+#    my_future =Future()
+#    fetch_future=http_client.fetch(url)
+#    fetch_future.add_done_callback(lambda f:myfuture.set_result(f.result()))
+#    return my_future
+    chunklen=len(response.body)-8
+    posnew,chunknew = struct.unpack('l%ds'%chunklen,response.body)
+    return posnew,chunknew
 
-@gen.coroutine
-def sizebw(host,filepath):
-   url = "http://"+host+"/sizebw?filepath="+filepath
-   logging.debug(url)
-   request = HTTPRequest(url, streaming_callback=partial(sizebwchunky), request_timeout=300)
-   AsyncHTTPClient.configure('tornado.simple_httpclient.SimpleAsyncHTTPClient', max_body_size=1024*1024*1024)
-   http_client = AsyncHTTPClient(force_instance=True)
-   response = yield http_client.fetch(request)
-   tornado.ioloop.IOLoop.instance().stop()
+def writer(filepath, position, chunk):
+    f=open(filepath,'rb+')
+    f.seek(position)
+    f.write(chunk)
+    f.close()
 
-@gen.coroutine
-def writer(host,filepath,targetdir,uid,gid,pos,size):
-   file_name = targetdir
-   path = file_name
-   chunk_size = 80*1024*1024
-   no = int(size) // chunk_size
-   i = 0
-   global total_downloaded
-   global readchunky
-#   lib=cdll.LoadLibrary('./libpycall.so')
-#   func=lib.update_bitmap
-#   func.argtypes=(c_int,c_int,c_char_p,c_int)
-   while i<no:
-       request = HTTPRequest(geturlread("read",host,filepath,uid,gid,pos,str(chunk_size)),request_timeout=300)
-       pos = str(int(pos)+chunk_size)
-       i = i+1
-       http_client = AsyncHTTPClient()
-       response = yield http_client.fetch(request)
-       response = response.body
-       logging.debug("chunk length"+str(len(response)))
-       f = open(path,'rb+')
-       chunklength = len(response)-8
-       posnew,chunknew = struct.unpack('l%ds'%chunklength,response)
-       logging.debug("posnew is"+str(posnew)) 
-       logging.debug("chunkleng"+str(len(chunknew)))
-       logging.debug("filesize"+str(FILESIZE))
-       f.seek(posnew)
-       f.write(chunknew)
-       total_downloaded=total_downloaded+len(chunknew)
-       f.close()
-#       func= lib.update_bitmap(int(posnew),int(len(chunknew)),filepath.encode("utf-8"),FILESIZE)
-       logging.debug("total bytes downloaded was"+str(total_downloaded))
-
-   if (int(size) % chunk_size) != 0:
-       last = int(size) % chunk_size
-       request = HTTPRequest(geturlread("read",host,filepath,uid,gid,pos,str(last)),request_timeout=300)
-       http_client = AsyncHTTPClient()
-       response = yield http_client.fetch(request)
-       response = response.body
-       f = open(path,'rb+')
-       chunklength = len(response)-8
-       posnew,chunknew = struct.unpack('l%ds'%chunklength,response)
-       f.seek(posnew)
-       f.write(chunknew)
-       total_downloaded=total_downloaded+len(chunknew)
-       f.close() 
-#       func= lib.update_bitmap(int(posnew),int(len(chunknew)),filepath.encode("utf-8"),FILESIZE)
-       logging.debug("total bytes downloaded was"+ str(total_downloaded))
-   tornado.ioloop.IOLoop.instance().stop()
+def deal(host,filepath,targetdir,uid,gid,pos,streamsize):
+    posnew,chunknew=fetch(host,filepath,uid,gid,pos,streamsize)
+    writer(targetdir, posnew, chunknew)
 
 def readentrance(host,filepath,targetdir,uid,gid,pos,size):
-    sizebw(host,filepath)	 
-    tornado.ioloop.IOLoop.instance().start()
-    filesize = FILESIZE
-    start_time = time.time()
-    global realsize
-    if(int(size)>=filesize):
-        realsize = filesize
+    start_time=time.time()
+    logging.debug("start python module"+format(start_time)+"  POS: "+str(pos))
+    if (int(size)<=CHUNKSIZE):
+        streamsize=int(size)
+        deal(host,filepath,targetdir,uid,gid,pos,streamsize)
     else:
-        realsize = int(size)
-    writer(host,filepath,targetdir,uid,gid,int(pos),realsize)
-    tornado.ioloop.IOLoop.instance().start()
-    end_time = time.time()
-    logging.debug("Total time :{}"+format(end_time-start_time))
-    logging.debug("-------2p.pid: "+str(os.getpid()))
-    
+        streamsize=CHUNKSIZE
+        i=0
+        streamnum=(int(size))//CHUNKSIZE
+        while(i<streamnum):
+            deal(host,filepath,targetdir,uid,gid,int(pos)+streamsize*i,streamsize)
+            i=i+1
+        if(streamnum*streamsize<int(size)):
+            deal(host,filepath,targetdir,uid,gid,int(pos)+streamsize*streamnum,int(size)-streamsize*streamnum
+)
+'''
+    else:
+        threads=[]
+        streamsize=CHUNKSIZE
+        i=0
+        streamnum=(int(size))//CHUNKSIZE
+        while(i<streamnum):
+            th=threading.Thread(target=deal, args=(host,filepath,targetdir,uid,gid,int(pos)+streamsize*i,streamsize))
+            threads.append(th)
+            i=i+1
+        if(streamnum*streamsize<int(size)):
+            th=threading.Thread(target=deal, args=(host,filepath,targetdir,uid,gid,int(pos)+streamsize*streamnum,int(size)-streamsize*streamnum))
+            threads.append(th)
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    end_time=time.time()
+    logging.debug("ipd:"+str(os.getpid())+"exct_time:"+format(end_time-start_time))
+#    chunk=chunknew.decode('utf-8')
+#    return posnew,chunk
+'''
 
 if __name__=="__main__":
-	logging.debug("pid: "+str(os.getpid()))
-	readentrance(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5],sys.argv[6],sys.argv[7])
+    readentrance("202.122.37.90:28001","/eos/user/c/chyd/5000","/tmp/log","0","0","0","5242880000")
+#    pos=0
+#    size=10*1024*1024
+#    thread_list=[]
+#    for i in range(1):
+#        t=threading.Thread(target=readentrance, args=("202.122.37.90:28001","/eos/user/x/xuq/hosts","/cdfs_data/log","0","0",str(pos+i*size),str(size)))
+#        thread_list.append(t)
+#    for t in thread_list:
+#        t.start()
+#    for t in thread_list:
+#        t.join()

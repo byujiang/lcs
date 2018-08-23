@@ -14,7 +14,7 @@
 #include "Cns.h"
 #include "serrno.h"
 
-int Cns_file_create(const char *path,char *location,int filesize)
+int Cns_file_create(const char *path,char *location,size_t filesize)
 {
 	char *actual_path;
 	int c, n;
@@ -44,7 +44,7 @@ int Cns_file_create(const char *path,char *location,int filesize)
 	}
 #endif
 
-	if (! path||!actual_path||filesize<=0) {
+	if (! path||filesize<=0) {
 		serrno = EFAULT;
 		return (-1);
 	}
@@ -72,7 +72,7 @@ int Cns_file_create(const char *path,char *location,int filesize)
 	marshall_LONG (sbp, gid);
 	marshall_HYPER (sbp, thip->cwd);
 	marshall_STRING (sbp, actual_path);
-	marshall_LONG (sbp, filesize);
+	marshall_HYPER (sbp, filesize);
 
 	msglen = sbp - sendbuf;
 	marshall_LONG (q, msglen);	/* update length field */

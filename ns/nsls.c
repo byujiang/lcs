@@ -40,7 +40,7 @@ int uflag;
 int checksumflag;
 int tflag;
 char mdir[128];
-char confile[]="/etc/profile1";
+char confile[]="/etc/cdfs/cdfs.conf";
 
 int listdir(char *dir);
 int listdir_t(char *dir);

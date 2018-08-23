@@ -81,8 +81,8 @@ int Cns_read_t(const char *path, char *buff, size_t size, off_t offset, char *pa
         marshall_LONG (sbp, gid);
         marshall_HYPER (sbp, thip->cwd);
         marshall_STRING (sbp, actual_path);
-	marshall_LONG (sbp, size);
-        marshall_LONG (sbp, offset);
+	marshall_HYPER (sbp, size);
+        marshall_HYPER (sbp, offset);
 	marshall_STRING (sbp, path_t);
 	
         msglen = sbp - sendbuf;

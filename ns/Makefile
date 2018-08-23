@@ -8,8 +8,8 @@
 #
 
 #  Default rules for Make          Linux
-CC = g++ -fPIC -D_LARGEFILE64_SOURCE -g -w
-CXX += -fPIC -D_LARGEFILE64_SOURCE -g
+CC = g++ -fPIC -D_LARGEFILE64_SOURCE -g -w -O3
+CXX += -fPIC -D_LARGEFILE64_SOURCE -g -O3
 MTCCFLAGS = -pthread  -DCTHREAD_LINUX -D_THREAD_SAFE -D_REENTRANT
 MTLDLIBS =
 MTLDFLAGS = -pthread
@@ -20,7 +20,7 @@ FC = g77
 
 ACCTFLAG=-DSACCT
 
-BIN = /usr/bin
+BIN = /usr/local/bin
 
 FILMANDIR = /usr/man/man4
 FILMANSUFFIX = 4
@@ -46,14 +46,15 @@ SHELL = /bin/sh
 
 #    Make name server programs.
 
-CNS_HOST = "vm083108.v.ihep.ac.cn"
+CNS_HOST = "vm083132.v.ihep.ac.cn"
 CNSHOSTPFX = cns
-INCLUDES = ../h
+INCLUDES = ../include
 
-LIBS = -L../lib -lshift  $(ADNSLIB) -lnsl -lcurl -ljson-c -luuid -lpython3.5m -lpthread
+LIBS = -L../lib -lshift  $(ADNSLIB) -lnsl -lcurl -ljson-c -luuid -lpython3.6m -lpthread
 
-NSLIB = -L. -lns 
+NSLIB = -L. -lns
 
+PYFLAGS = -DPY36
 
 SPOOL = /usr/spool/ns
 LOGFILE = $(SPOOL)/log
@@ -74,8 +75,8 @@ LIBMYS =  -L/usr/lib64/mysql -lmysqlclient -lz
 
 DFLAGS = -DBIN=\"$(BIN)\" -DCNS_HOST=\"$(CNS_HOST)\"          -DCNSHOSTPFX=\"$(CNSHOSTPFX)\"          -DLOGFILE=\"$(LOGFILE)\"          -DNSCONFIG=\"$(NSCONFIG)\"          $(ACCTFLAG) $(ACCTFILE) $(RDSFLG) $(ORAFLG) $(MYSFLG)
 
-CFLAGS =        -I$(INCLUDES) $(MTCCFLAGS) $(DFLAGS) $(RDSINC) $(ORAINC) $(MYSINC)
-CXXFLAGS=        -I$(INCLUDES) $(MTCCFLAGS) $(DFLAGS) $(RDSINC) $(ORAINC) $(MYSINC)
+CFLAGS =        -I$(INCLUDES) $(MTCCFLAGS) $(DFLAGS) $(RDSINC) $(ORAINC) $(MYSINC) $(PYFLAGS)
+CXXFLAGS=        -I$(INCLUDES) $(MTCCFLAGS) $(DFLAGS) $(RDSINC) $(ORAINC) $(MYSINC) $(PYFLAGS)
 
 ########################## DEPENDENCY LIBRARIES ###############
 
@@ -83,23 +84,23 @@ DEPLIB = ../lib/libshift.a
 
 ########################## RULES ##############################
 
-MANPAGES = $(LIBMANDIR)/Cns_access.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_chclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_chdir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_chmod.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_chown.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_closedir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_creat.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_delcomment.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_delete.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_deleteclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_enterclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_getcomment.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_getcwd.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_getsegattrs.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_listclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_listtape.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_mkdir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_modifyclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_opendir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_queryclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_readdir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_readdirc.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_readdirx.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_readdirxc.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_readdirxt.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_rename.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_replaceseg.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_rewinddir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_rmdir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_selectsrvr.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_setatime.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_setcomment.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_setfsize.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_setsegattrs.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_stat.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_umask.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_undelete.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_unlink.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_updateseg_checksum.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_utime.$(LIBMANSUFFIX) 	   $(MANDIR)/nschclass.$(MANSUFFIX) 	   $(MANDIR)/nschmod.$(MANSUFFIX) 	   $(MANDIR)/nschown.$(MANSUFFIX) 	   $(MANDIR)/nsdaemon.$(MANSUFFIX) 	   $(MANDIR)/nsdelcomment.$(MANSUFFIX) 	   $(MANDIR)/nsdeleteclass.$(MANSUFFIX) 	   $(MANDIR)/nsenterclass.$(MANSUFFIX) 	   $(MANDIR)/nsfind.$(MANSUFFIX) 	   $(MANDIR)/nslistclass.$(MANSUFFIX) 	   $(MANDIR)/nslisttape.$(MANSUFFIX) 	   $(MANDIR)/nsls.$(MANSUFFIX) 	   $(MANDIR)/nsmkdir.$(MANSUFFIX) 	   $(MANDIR)/nsmodifyclass.$(MANSUFFIX) 	   $(MANDIR)/nsrename.$(MANSUFFIX) 	   $(MANDIR)/nsrm.$(MANSUFFIX) 	   $(MANDIR)/nssetchecksum.$(MANSUFFIX) 	   $(MANDIR)/nssetcomment.$(MANSUFFIX) 	   $(MANDIR)/nsshutdown.$(MANSUFFIX) 	   $(MANDIR)/nssetactualpath.$(MANSUFFIX) 	   $(MANDIR)/nsdelactualpath.$(MANSUFFIX) 	   $(MANDIR)/Cns_setactualpath.$(MANSUFFIX) 	   $(MANDIR)/Cns_delactualpath.$(MANSUFFIX) 	   $(MANDIR)/Cns_Data_daemon.$(MANSUFFIX)   	   $(MANDIR)/Cns_get_Data_daemon.$(MANSUFFIX)   	   $(MANDIR)/Cns_opendir_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_readdir_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_readdirc_t.$(MANSUFFIX)  	    $(MANDIR)/Cns_readdirxt_t.$(MANSUFFIX)  	    $(MANDIR)/Cns_readdirx_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_closedir_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_readdirxc_t.$(MANSUFFIX) 	   $(MANDIR)/nscat/.$(MANSUFFIX) 	   $(MANDIR)/Cns_cat.$(MANSUFFIX) 	   $(MANDIR)/Cns_setseg.$(MANSUFFIX) 	   $(MANDIR)/Cns_download_segdata.$(MANSUFFIX) 	   $(MANDIR)/ns_test.$(MANSUFFIX) 	   $(MANDIR)/Cns_access_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_read_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_open_t.$(MANSUFFIX)    $(MANDIR)/Cns_xrd.$(MANSUFFIX)	  $(MANDIR)/Cns_get_virpath.$(MANSUFFIX)	  $(MANDIR)/Cns_touch_t.$(MANSUFFIX)	  $(MANDIR)/Cns_stat_t.$(MANSUFFIX)	  $(MANDIR)/Cns_opendir_t_xrd.$(MANSUFFIX)	  $(MANDIR)/Cns_getattr_id.$(MANSUFFIX)	  $(MANDIR)/Utils.$(MANSUFFIX)
+MANPAGES = $(LIBMANDIR)/Cns_access.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_chclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_chdir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_chmod.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_chown.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_closedir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_creat.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_delcomment.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_delete.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_deleteclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_enterclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_getcomment.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_getcwd.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_getsegattrs.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_listclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_listtape.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_mkdir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_modifyclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_opendir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_queryclass.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_readdir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_readdirc.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_readdirx.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_readdirxc.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_readdirxt.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_rename.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_replaceseg.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_rewinddir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_rmdir.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_selectsrvr.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_setatime.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_setcomment.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_setfsize.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_setsegattrs.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_stat.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_umask.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_undelete.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_unlink.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_updateseg_checksum.$(LIBMANSUFFIX) 	   $(LIBMANDIR)/Cns_utime.$(LIBMANSUFFIX) 	   $(MANDIR)/nschclass.$(MANSUFFIX) 	   $(MANDIR)/nschmod.$(MANSUFFIX) 	   $(MANDIR)/nschown.$(MANSUFFIX) 	   $(MANDIR)/nsdaemon.$(MANSUFFIX) 	   $(MANDIR)/nsdelcomment.$(MANSUFFIX) 	   $(MANDIR)/nsdeleteclass.$(MANSUFFIX) 	   $(MANDIR)/nsenterclass.$(MANSUFFIX) 	   $(MANDIR)/nsfind.$(MANSUFFIX) 	   $(MANDIR)/nslistclass.$(MANSUFFIX) 	   $(MANDIR)/nslisttape.$(MANSUFFIX) 	   $(MANDIR)/nsls.$(MANSUFFIX) 	   $(MANDIR)/ilist.$(MANSUFFIX) 	   $(MANDIR)/iput.$(MANSUFFIX) 	   $(MANDIR)/iget.$(MANSUFFIX) 	   $(MANDIR)/nsmkdir.$(MANSUFFIX) 	   $(MANDIR)/nsmodifyclass.$(MANSUFFIX) 	   $(MANDIR)/nsrename.$(MANSUFFIX) 	   $(MANDIR)/nsrm.$(MANSUFFIX) 	   $(MANDIR)/nssetchecksum.$(MANSUFFIX) 	   $(MANDIR)/nssetcomment.$(MANSUFFIX) 	   $(MANDIR)/nsshutdown.$(MANSUFFIX) 	   $(MANDIR)/nssetactualpath.$(MANSUFFIX) 	   $(MANDIR)/nsdelactualpath.$(MANSUFFIX) 	   $(MANDIR)/Cns_setactualpath.$(MANSUFFIX) 	   $(MANDIR)/Cns_delactualpath.$(MANSUFFIX) 	   $(MANDIR)/Cns_Data_daemon.$(MANSUFFIX)   	   $(MANDIR)/Cns_get_Data_daemon.$(MANSUFFIX)   	   $(MANDIR)/Cns_opendir_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_readdir_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_readdirc_t.$(MANSUFFIX)  	    $(MANDIR)/Cns_readdirxt_t.$(MANSUFFIX)  	    $(MANDIR)/Cns_readdirx_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_closedir_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_readdirxc_t.$(MANSUFFIX) 	   $(MANDIR)/nscat/.$(MANSUFFIX) 	   $(MANDIR)/Cns_cat.$(MANSUFFIX) 	   $(MANDIR)/Cns_setseg.$(MANSUFFIX) 	   $(MANDIR)/Cns_download_segdata.$(MANSUFFIX) 	   $(MANDIR)/ns_test.$(MANSUFFIX) 	   $(MANDIR)/Cns_access_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_read_t.$(MANSUFFIX) 	   $(MANDIR)/Cns_open_t.$(MANSUFFIX)    $(MANDIR)/Cns_xrd.$(MANSUFFIX)	  $(MANDIR)/Cns_get_virpath.$(MANSUFFIX)	  $(MANDIR)/Cns_touch_t.$(MANSUFFIX)	  $(MANDIR)/Cns_stat_t.$(MANSUFFIX)	  $(MANDIR)/Cns_opendir_t_xrd.$(MANSUFFIX)	  $(MANDIR)/Cns_getattr_id.$(MANSUFFIX)	  $(MANDIR)/Cns_rfsync.$(MANSUFFIX)	  $(MANDIR)/Cns_refreshcache.$(MANSUFFIX)	  $(MANDIR)/Cns_setmetadata.$(MANSUFFIX)	  $(MANDIR)/Cns_unlink_t.$(MANSUFFIX)	  $(MANDIR)/Utils.$(MANSUFFIX)
 
-EXPORTMANPAGES = $(EXPORTMAN)/man3/Cns_access.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_chclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_chdir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_chmod.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_chown.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_closedir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_creat.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_delcomment.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_delete.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_deleteclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_enterclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_getcomment.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_getcwd.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_getsegattrs.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_listclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_listtape.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_mkdir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_modifyclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_opendir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_queryclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirc.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirx.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirxc.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirxt.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_rename.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_replaceseg.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_rewinddir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_rmdir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_selectsrvr.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_setatime.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_setcomment.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_setfsize.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_setsegattrs.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_stat.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_umask.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_undelete.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_unlink.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_updateseg_checksum.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_utime.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man1/nschclass.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nschmod.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nschown.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsdaemon.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsdelcomment.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsdeleteclass.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsenterclass.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsfind.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nslistclass.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nslisttape.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsls.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsmkdir.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsmodifyclass.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsrename.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsrm.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nssetchecksum.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nssetcomment.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsshutdown.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nssetactualpath.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_setactualpath.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsdelactualpath.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_delactualpath.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_Data_daemon.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_get_Data_daemon.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_opendir_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdir_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirc_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirxt_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirx_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirxc_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_closedir_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nscat.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_cat.$(MANSUFFIX)	$(EXPORTMAN)/man3/Cns_setseg.$(MANSUFFIX)	$(EXPORTMAN)/man3/Cns_download_segdata.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/ns_test.$(MANSUFFIX)	$(EXPORTMAN)/man3/Cns_access_t.$(MANSUFFIX)	$(EXPORTMAN)/man3/Cns_open_t.$(MANSUFFIX)	$(EXPORTMAN)/man3/Cns_read_t.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_xrd.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_get_virpath.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_touch_t.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_stat_t.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_opendir_t_xrd.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_getattr_id.$(MANSUFFIX)Cns_getattr_id    $(EXPORTMAN)/man3/Utils.$(MANSUFFIX)Utils   
+EXPORTMANPAGES = $(EXPORTMAN)/man3/Cns_access.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_chclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_chdir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_chmod.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_chown.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_closedir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_creat.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_delcomment.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_delete.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_deleteclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_enterclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_getcomment.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_getcwd.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_getsegattrs.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_listclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_listtape.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_mkdir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_modifyclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_opendir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_queryclass.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirc.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirx.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirxc.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirxt.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_rename.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_replaceseg.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_rewinddir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_rmdir.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_selectsrvr.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_setatime.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_setcomment.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_setfsize.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_setsegattrs.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_stat.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_umask.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_undelete.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_unlink.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_updateseg_checksum.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_utime.$(LIBMANSUFFIX) 	   $(EXPORTMAN)/man1/nschclass.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nschmod.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nschown.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsdaemon.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsdelcomment.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsdeleteclass.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsenterclass.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsfind.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nslistclass.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nslisttape.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsls.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/ilist.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/iput.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/iget.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsmkdir.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsmodifyclass.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsrename.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsrm.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nssetchecksum.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nssetcomment.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsshutdown.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nssetactualpath.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_setactualpath.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nsdelactualpath.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_delactualpath.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_Data_daemon.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_get_Data_daemon.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_opendir_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdir_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirc_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirxt_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirx_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_readdirxc_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_closedir_t.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/nscat.$(MANSUFFIX) 	   $(EXPORTMAN)/man3/Cns_cat.$(MANSUFFIX)	$(EXPORTMAN)/man3/Cns_setseg.$(MANSUFFIX)	$(EXPORTMAN)/man3/Cns_download_segdata.$(MANSUFFIX) 	   $(EXPORTMAN)/man1/ns_test.$(MANSUFFIX)	$(EXPORTMAN)/man3/Cns_access_t.$(MANSUFFIX)	$(EXPORTMAN)/man3/Cns_open_t.$(MANSUFFIX)	$(EXPORTMAN)/man3/Cns_read_t.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_xrd.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_get_virpath.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_touch_t.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_stat_t.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_opendir_t_xrd.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_getattr_id.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_rfsync.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_refreshcache.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_setmetadata.$(MANSUFFIX)    $(EXPORTMAN)/man3/Cns_unlink_t.$(MANSUFFIX)    $(EXPORTMAN)/man3/Utils.$(MANSUFFIX)
 
-CLIENT = libns.a 	 nschclass 	 nschmod 	 nschown 	 nsdelcomment 	 nsdeleteclass 	 nsenterclass 	 nsfind 	 nslistclass 	 nslisttape 	 nsls 	 nsmkdir 	 nsmodifyclass 	 nsrename 	 nsrm 	 nssetchecksum 	 nssetcomment 	 nsshutdown 	 nstouch 	 nssetactualpath 	 nsdelactualpath    Data_daemon    nscat    ns_test 
+CLIENT = libns.a 	 nschclass 	 nschmod 	 nschown 	 nsdelcomment 	 nsdeleteclass 	 nsenterclass 	 nsfind 	 nslistclass 	 nslisttape 	 nsls 	 ilist 	 iput 	 iget 	 nsmkdir 	 nsmodifyclass 	 nsrename 	 nsrm 	 nssetchecksum 	 nssetcomment 	 nsshutdown 	 nstouch 	 nssetactualpath 	 nsdelactualpath    Data_daemon    nscat    ns_test
 
 PROGS_D = nsdaemon
 
-IPROGS_C = $(BIN)/nschclass 	   $(BIN)/nschmod 	   $(BIN)/nschown 	   $(BIN)/nsdelcomment 	   $(BIN)/nsdeleteclass 	   $(BIN)/nsenterclass 	   $(BIN)/nsfind 	   $(BIN)/nslistclass 	   $(BIN)/nslisttape 	   $(BIN)/nsls 	   $(BIN)/nsmkdir 	   $(BIN)/nsmodifyclass 	   $(BIN)/nsrename 	   $(BIN)/nsrm 	   $(BIN)/nssetchecksum 	   $(BIN)/nssetcomment 	   $(BIN)/nsshutdown 	   $(BIN)/nstouch 	   $(BIN)/nssetactualpath 	   $(BIN)/nsdelactualpath 	   $(BIN)/Data_daemon 	   $(BIN)/nscat	   $(BIN)/ns_test
+IPROGS_C = $(BIN)/nschclass 	   $(BIN)/nschmod 	   $(BIN)/nschown 	   $(BIN)/nsdelcomment 	   $(BIN)/nsdeleteclass 	   $(BIN)/nsenterclass 	   $(BIN)/nsfind 	   $(BIN)/nslistclass 	   $(BIN)/nslisttape 	   $(BIN)/nsls 	   $(BIN)/ilist 	   $(BIN)/iput 	   $(BIN)/iget 	   $(BIN)/nsmkdir 	   $(BIN)/nsmodifyclass 	   $(BIN)/nsrename 	   $(BIN)/nsrm 	   $(BIN)/nssetchecksum 	   $(BIN)/nssetcomment 	   $(BIN)/nsshutdown 	   $(BIN)/nstouch 	   $(BIN)/nssetactualpath 	   $(BIN)/nsdelactualpath 	   $(BIN)/Data_daemon 	   $(BIN)/nscat	   $(BIN)/ns_test
 
 IPROGS_D = $(BIN)/nsdaemon
 
-EPROGS_C = $(EXPORTBIN)/nschclass 	   $(EXPORTBIN)/nschmod 	   $(EXPORTBIN)/nschown 	   $(EXPORTBIN)/nsdelcomment 	   $(EXPORTBIN)/nsdeleteclass 	   $(EXPORTBIN)/nsenterclass 	   $(EXPORTBIN)/nsfind 	   $(EXPORTBIN)/nslistclass 	   $(EXPORTBIN)/nslisttape 	   $(EXPORTBIN)/nsls 	   $(EXPORTBIN)/nsmkdir 	   $(EXPORTBIN)/nsmodifyclass 	   $(EXPORTBIN)/nsrename 	   $(EXPORTBIN)/nsrm 	   $(EXPORTBIN)/nssetchecksum 	   $(EXPORTBIN)/nssetcomment 	   $(EXPORTBIN)/nsshutdown 	   $(EXPORTBIN)/nstouch 	   $(EXPORTBIN)/nssetactualpath 	   $(EXPORTBIN)/nsdelactualpath 	   $(EXPORTBIN)/Data_daemon 	   $(EXPORTBIN)/nscat 	   $(EXPORTBIN)/ns_test
+EPROGS_C = $(EXPORTBIN)/nschclass 	   $(EXPORTBIN)/nschmod 	   $(EXPORTBIN)/nschown 	   $(EXPORTBIN)/nsdelcomment 	   $(EXPORTBIN)/nsdeleteclass 	   $(EXPORTBIN)/nsenterclass 	   $(EXPORTBIN)/nsfind 	   $(EXPORTBIN)/nslistclass 	   $(EXPORTBIN)/nslisttape 	   $(EXPORTBIN)/nsls 	   $(EXPORTBIN)/ilist 	   $(EXPORTBIN)/iput 	   $(EXPORTBIN)/iget 	   $(EXPORTBIN)/nsmkdir 	   $(EXPORTBIN)/nsmodifyclass 	   $(EXPORTBIN)/nsrename 	   $(EXPORTBIN)/nsrm 	   $(EXPORTBIN)/nssetchecksum 	   $(EXPORTBIN)/nssetcomment 	   $(EXPORTBIN)/nsshutdown 	   $(EXPORTBIN)/nstouch 	   $(EXPORTBIN)/nssetactualpath 	   $(EXPORTBIN)/nsdelactualpath 	   $(EXPORTBIN)/Data_daemon 	   $(EXPORTBIN)/nscat 	   $(EXPORTBIN)/ns_test
 
-NSDAEMON_OBJS	=	Cns_main.o 			Cns_chkperm.o 			Cns_createactfile.o                $(DBOBJS) 			Cns_procreq.o 			sendrep.o 			nslogit.o 	    Cns_transform.o	
+NSDAEMON_OBJS	=	Cns_main.o 			Cns_chkperm.o 			Cns_createactfile.o                $(DBOBJS) 			Cns_procreq.o 			sendrep.o 			nslogit.o 	    Cns_transform.o
 
-NSLIB_OBJS	=	Cns_access.o 			Cns_apiinit.o 			Cns_chclass.o 			Cns_chdir.o 			Cns_chmod.o 			Cns_chown.o 			Cns_closedir.o 			Cns_creat.o 			Cns_delcomment.o 			Cns_delete.o 			Cns_deleteclass.o 			Cns_enterclass.o 			Cns_errmsg.o 			Cns_getcomment.o 			Cns_getcwd.o 			Cns_getpath.o 			Cns_getsegattrs.o 			Cns_listclass.o 			Cns_listtape.o 			Cns_mkdir.o 			Cns_modifyclass.o 			Cns_opendir.o 			Cns_queryclass.o 			Cns_readdir.o 			Cns_readdirc.o 			Cns_readdirx.o 			Cns_readdirxc.o 			Cns_readdirxt.o 			Cns_rename.o 			Cns_replaceseg.o 			Cns_rewinddir.o 			Cns_rmdir.o 			Cns_selectsrvr.o 			Cns_setatime.o 			Cns_setcomment.o 			Cns_setfsize.o 			Cns_setsegattrs.o 			Cns_stat.o 			Cns_umask.o 			Cns_undelete.o 			Cns_unlink.o 			Cns_updateseg_checksum.o 			Cns_utime.o 			send2nsd.o 			Cns_setactualpath.o 			Cns_delactualpath.o 			Cns_Data_daemon.o 			Cns_get_Data_daemon.o 			Cns_opendir_t.o 	   Cns_readdir_t.o 	   Cns_readdirc_t.o 	   Cns_readdirxt_t.o 	   Cns_readdirx_t.o 	   Cns_readdirxc_t.o 	   Cns_closedir_t.o 	   Cns_cat.o	Cns_setseg.o  Cns_download_segdata.o  Cns_createactfile.o    Cns_access_t.o    Cns_read_t.o    Cns_open_t.o    Cns_xrd.o      Cns_get_virpath.o    Cns_touch_t.o    Cns_stat_t.o    Cns_opendir_t_xrd.o    Cns_getattr_id.o    Utils.o
+NSLIB_OBJS	=	Cns_access.o 			Cns_apiinit.o 			Cns_chclass.o 			Cns_chdir.o 			Cns_chmod.o 			Cns_chown.o 			Cns_closedir.o 			Cns_creat.o 			Cns_delcomment.o 			Cns_delete.o 			Cns_deleteclass.o 			Cns_enterclass.o 			Cns_errmsg.o 			Cns_getcomment.o 			Cns_getcwd.o 			Cns_getpath.o 			Cns_getsegattrs.o 			Cns_listclass.o 			Cns_listtape.o 			Cns_mkdir.o 			Cns_modifyclass.o 			Cns_opendir.o 			Cns_queryclass.o 			Cns_readdir.o 			Cns_readdirc.o 			Cns_readdirx.o 			Cns_readdirxc.o 			Cns_readdirxt.o 			Cns_rename.o 			Cns_replaceseg.o 			Cns_rewinddir.o 			Cns_rmdir.o 			Cns_selectsrvr.o 			Cns_setatime.o 			Cns_setcomment.o 			Cns_setfsize.o 			Cns_setsegattrs.o 			Cns_stat.o 			Cns_umask.o 			Cns_undelete.o 			Cns_unlink.o 			Cns_updateseg_checksum.o 			Cns_utime.o 			send2nsd.o 			Cns_setactualpath.o 			Cns_delactualpath.o 			Cns_Data_daemon.o 			Cns_get_Data_daemon.o 			Cns_opendir_t.o 	   Cns_readdir_t.o 	   Cns_readdirc_t.o 	   Cns_readdirxt_t.o 	   Cns_readdirx_t.o 	   Cns_readdirxc_t.o 	   Cns_closedir_t.o 	   Cns_cat.o	Cns_setseg.o  Cns_download_segdata.o  Cns_createactfile.o    Cns_access_t.o    Cns_read_t.o    Cns_open_t.o    Cns_xrd.o      Cns_get_virpath.o    Cns_touch_t.o    Cns_stat_t.o    Cns_opendir_t_xrd.o    Cns_getattr_id.o    Cns_rfsync.o    Cns_refreshcache.o    Cns_setmetadata.o     Cns_unlink_t.o     Utils.o
 
 all: $(CLIENT) $(PROGS_D)
 
@@ -110,55 +111,61 @@ Cns_db.c Cns_db.h: $(CDBANA) Cns_db.des
 	$(CDBANA) -c Cns_db.c -h Cns_db.h Cns_db.des
 
 nschclass: nschclass.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nschclass.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nschclass.o $(NSLIB) $(LIBS)
 nschmod: nschmod.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nschmod.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nschmod.o $(NSLIB) $(LIBS)
 nschown: nschown.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nschown.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nschown.o $(NSLIB) $(LIBS)
 
 nsdaemon: $(NSDAEMON_OBJS)  $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) $(NSDAEMON_OBJS)  $(MTLDFLAGS) $(LIBS) $(MTLDLIBS) $(LIBORA) $(LIBRDS) $(LIBMYS) 
+	$(LD) -o ../bin/$@ $(LDFLAGS) $(NSDAEMON_OBJS)  $(MTLDFLAGS) $(LIBS) $(MTLDLIBS) $(LIBORA) $(LIBRDS) $(LIBMYS)
 
 nsdelcomment: nsdelcomment.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nsdelcomment.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nsdelcomment.o $(NSLIB) $(LIBS)
 nsdeleteclass: nsdeleteclass.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nsdeleteclass.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nsdeleteclass.o $(NSLIB) $(LIBS)
 nsenterclass: nsenterclass.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nsenterclass.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nsenterclass.o $(NSLIB) $(LIBS)
 nsfind: nsfind.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nsfind.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nsfind.o $(NSLIB) $(LIBS)
 nslistclass: nslistclass.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nslistclass.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nslistclass.o $(NSLIB) $(LIBS)
 nslisttape: nslisttape.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nslisttape.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nslisttape.o $(NSLIB) $(LIBS)
 nsls: nsls.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nsls.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nsls.o $(NSLIB) $(LIBS)
+ilist: ilist.o libns.a $(DEPLIB)
+	$(LD) -o ../bin/$@ $(LDFLAGS) ilist.o $(NSLIB) $(LIBS)
+iput: iput.o libns.a $(DEPLIB)
+	$(LD) -o ../bin/$@ $(LDFLAGS) iput.o $(NSLIB) $(LIBS)
+iget: iget.o libns.a $(DEPLIB)
+	$(LD) -o ../bin/$@ $(LDFLAGS) iget.o $(NSLIB) $(LIBS)
 nsmkdir: nsmkdir.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nsmkdir.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nsmkdir.o $(NSLIB) $(LIBS)
 nsmodifyclass: nsmodifyclass.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nsmodifyclass.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nsmodifyclass.o $(NSLIB) $(LIBS)
 nsrename: nsrename.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nsrename.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nsrename.o $(NSLIB) $(LIBS)
 nsrm: nsrm.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nsrm.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nsrm.o $(NSLIB) $(LIBS)
 nssetchecksum: nssetchecksum.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nssetchecksum.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nssetchecksum.o $(NSLIB) $(LIBS)
 nssetcomment: nssetcomment.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nssetcomment.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nssetcomment.o $(NSLIB) $(LIBS)
 nsshutdown: nsshutdown.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nsshutdown.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nsshutdown.o $(NSLIB) $(LIBS)
 nstouch: nstouch.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nstouch.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nstouch.o $(NSLIB) $(LIBS)
 nssetactualpath: nssetactualpath.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nssetactualpath.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nssetactualpath.o $(NSLIB) $(LIBS)
 nsdelactualpath: nsdelactualpath.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nsdelactualpath.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nsdelactualpath.o $(NSLIB) $(LIBS)
 Data_daemon: Data_daemon.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) Data_daemon.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) Data_daemon.o $(NSLIB) $(LIBS)
 nscat: nscat.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) nscat.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) nscat.o $(NSLIB) $(LIBS)
 ns_test: ns_test.o libns.a $(DEPLIB)
-	$(LD) -o $@ $(LDFLAGS) ns_test.o $(NSLIB) $(LIBS)
+	$(LD) -o ../bin/$@ $(LDFLAGS) ns_test.o $(NSLIB) $(LIBS)
 
 
 libns.a: $(NSLIB_OBJS)
@@ -169,11 +176,11 @@ libns.a: $(NSLIB_OBJS)
 #../lib/libshift.a:	FORCE
 #	cd ../lib ; $(MAKE) libshift.a
 
-install: $(BIN) $(IPROGS_C) $(IPROGS_D) 
+install: $(BIN) $(IPROGS_C) $(IPROGS_D)
 
 $(BIN)/nschclass: nschclass
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
@@ -184,278 +191,314 @@ $(EXPORTBIN)/nschclass: nschclass
 	@echo $(EXPORTBIN)/nschclass installed;
 
 $(BIN)/nschmod: nschmod
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nschmod: nschmod
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nschmod $(EXPORTBIN)/nschmod
+	@cp ../bin/nschmod $(EXPORTBIN)/nschmod
 	@chmod 755 $(EXPORTBIN)/nschmod
 	@echo $(EXPORTBIN)/nschmod installed;
 
 $(BIN)/nschown: nschown
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nschown: nschown
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nschown $(EXPORTBIN)/nschown
+	@cp ../bin/nschown $(EXPORTBIN)/nschown
 	@chmod 755 $(EXPORTBIN)/nschown
 	@echo $(EXPORTBIN)/nschown installed;
 
 $(BIN)/nsdaemon: nsdaemon
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 750 $@
 $(EXPORTBIN)/nsdaemon: nsdaemon
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsdaemon $(EXPORTBIN)/nsdaemon
+	@cp ../bin/nsdaemon $(EXPORTBIN)/nsdaemon
 	@chmod 750 $(EXPORTBIN)/nsdaemon
 	@echo $(EXPORTBIN)/nsdaemon installed;
 
 $(BIN)/nsdelcomment: nsdelcomment
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nsdelcomment: nsdelcomment
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsdelcomment $(EXPORTBIN)/nsdelcomment
+	@cp ../bin/nsdelcomment $(EXPORTBIN)/nsdelcomment
 	@chmod 755 $(EXPORTBIN)/nsdelcomment
 	@echo $(EXPORTBIN)/nsdelcomment installed;
 
 $(BIN)/nsdeleteclass: nsdeleteclass
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nsdeleteclass: nsdeleteclass
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsdeleteclass $(EXPORTBIN)/nsdeleteclass
+	@cp ../bin/nsdeleteclass $(EXPORTBIN)/nsdeleteclass
 	@chmod 755 $(EXPORTBIN)/nsdeleteclass
 	@echo $(EXPORTBIN)/nsdeleteclass installed;
 
 $(BIN)/nsenterclass: nsenterclass
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nsenterclass: nsenterclass
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsenterclass $(EXPORTBIN)/nsenterclass
+	@cp ../bin/nsenterclass $(EXPORTBIN)/nsenterclass
 	@chmod 755 $(EXPORTBIN)/nsenterclass
 	@echo $(EXPORTBIN)/nsenterclass installed;
 
 $(BIN)/nsfind: nsfind
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nsfind: nsfind
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsfind $(EXPORTBIN)/nsfind
+	@cp ../bin/nsfind $(EXPORTBIN)/nsfind
 	@chmod 755 $(EXPORTBIN)/nsfind
 	@echo $(EXPORTBIN)/nsfind installed;
 
 $(BIN)/nslistclass: nslistclass
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nslistclass: nslistclass
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nslistclass $(EXPORTBIN)/nslistclass
+	@cp ../bin/nslistclass $(EXPORTBIN)/nslistclass
 	@chmod 755 $(EXPORTBIN)/nslistclass
 	@echo $(EXPORTBIN)/nslistclass installed;
 
 $(BIN)/nslisttape: nslisttape
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nslisttape: nslisttape
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nslisttape $(EXPORTBIN)/nslisttape
+	@cp ../bin/nslisttape $(EXPORTBIN)/nslisttape
 	@chmod 755 $(EXPORTBIN)/nslisttape
 	@echo $(EXPORTBIN)/nslisttape installed;
 
 $(BIN)/nsls: nsls
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nsls: nsls
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsls $(EXPORTBIN)/nsls
+	@cp ../bin/nsls $(EXPORTBIN)/nsls
 	@chmod 755 $(EXPORTBIN)/nsls
 	@echo $(EXPORTBIN)/nsls installed;
 
+$(BIN)/ilist: ilist
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
+	chown root $@
+	chgrp bin $@
+	chmod 755 $@
+$(EXPORTBIN)/ilist: ilist
+	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
+	@cp ../bin/ilist $(EXPORTBIN)/ilist
+	@chmod 755 $(EXPORTBIN)/ilist
+	@echo $(EXPORTBIN)/ilist installed;
+
+$(BIN)/iput: iput
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
+	chown root $@
+	chgrp bin $@
+	chmod 755 $@
+$(EXPORTBIN)/iput: iput
+	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
+	@cp ../bin/iput $(EXPORTBIN)/iput
+	@chmod 755 $(EXPORTBIN)/iput
+	@echo $(EXPORTBIN)/iput installed;
+
+$(BIN)/iget: iget
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
+	chown root $@
+	chgrp bin $@
+	chmod 755 $@
+$(EXPORTBIN)/iget: iget
+	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
+	@cp ../bin/iget $(EXPORTBIN)/iget
+	@chmod 755 $(EXPORTBIN)/iget
+	@echo $(EXPORTBIN)/iget installed;
+
 $(BIN)/nsmkdir: nsmkdir
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nsmkdir: nsmkdir
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsmkdir $(EXPORTBIN)/nsmkdir
+	@cp ../bin/nsmkdir $(EXPORTBIN)/nsmkdir
 	@chmod 755 $(EXPORTBIN)/nsmkdir
 	@echo $(EXPORTBIN)/nsmkdir installed;
 
 $(BIN)/nsmodifyclass: nsmodifyclass
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nsmodifyclass: nsmodifyclass
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsmodifyclass $(EXPORTBIN)/nsmodifyclass
+	@cp ../bin/nsmodifyclass $(EXPORTBIN)/nsmodifyclass
 	@chmod 755 $(EXPORTBIN)/nsmodifyclass
 	@echo $(EXPORTBIN)/nsmodifyclass installed;
 
 $(BIN)/nsrename: nsrename
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nsrename: nsrename
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsrename $(EXPORTBIN)/nsrename
+	@cp ../bin/nsrename $(EXPORTBIN)/nsrename
 	@chmod 755 $(EXPORTBIN)/nsrename
 	@echo $(EXPORTBIN)/nsrename installed;
 
 $(BIN)/nsrm: nsrm
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nsrm: nsrm
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsrm $(EXPORTBIN)/nsrm
+	@cp ../bin/nsrm $(EXPORTBIN)/nsrm
 	@chmod 755 $(EXPORTBIN)/nsrm
 	@echo $(EXPORTBIN)/nsrm installed;
 
 $(BIN)/nssetchecksum: nssetchecksum
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nssetchecksum: nssetchecksum
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nssetchecksum $(EXPORTBIN)/nssetchecksum
+	@cp ../bin/nssetchecksum $(EXPORTBIN)/nssetchecksum
 	@chmod 755 $(EXPORTBIN)/nssetchecksum
 	@echo $(EXPORTBIN)/nssetchecksum installed;
 
 $(BIN)/nssetcomment: nssetcomment
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nssetcomment: nssetcomment
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nssetcomment $(EXPORTBIN)/nssetcomment
+	@cp ../bin/nssetcomment $(EXPORTBIN)/nssetcomment
 	@chmod 755 $(EXPORTBIN)/nssetcomment
 	@echo $(EXPORTBIN)/nssetcomment installed;
 
 $(BIN)/nsshutdown: nsshutdown
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nsshutdown: nsshutdown
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsshutdown $(EXPORTBIN)/nsshutdown
+	@cp ../bin/nsshutdown $(EXPORTBIN)/nsshutdown
 	@chmod 755 $(EXPORTBIN)/nsshutdown
 	@echo $(EXPORTBIN)/nsshutdown installed;
 
 $(BIN)/nstouch: nstouch
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nstouch: nstouch
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nstouch $(EXPORTBIN)/nstouch
+	@cp ../bin/nstouch $(EXPORTBIN)/nstouch
 	@chmod 755 $(EXPORTBIN)/nstouch
 	@echo $(EXPORTBIN)/nstouch installed;
-	
+
 $(BIN)/nssetactualpath: nssetactualpath
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nssetactualpath: nssetactualpath
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nssetactualpath $(EXPORTBIN)/nssetactualpath
+	@cp ../bin/nssetactualpath $(EXPORTBIN)/nssetactualpath
 	@chmod 755 $(EXPORTBIN)/nssetactualpath
 	@echo $(EXPORTBIN)/nssetactualpath installed;
 
 $(BIN)/nsdelactualpath: nsdelactualpath
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nsdelactualpath: nsdelactualpath
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nsdelactualpath $(EXPORTBIN)/nsdelactualpath
+	@cp ../bin/nsdelactualpath $(EXPORTBIN)/nsdelactualpath
 	@chmod 755 $(EXPORTBIN)/nsdelactualpath
 	@echo $(EXPORTBIN)/nsdelactualpath installed;
-	
+
 $(BIN)/Data_daemon: Data_daemon
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/Data_daemon: Data_daemon
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp Data_daemon $(EXPORTBIN)/Data_daemon
+	@cp ../bin/Data_daemon $(EXPORTBIN)/Data_daemon
 	@chmod 755 $(EXPORTBIN)/Data_daemon
 	@echo $(EXPORTBIN)/Data_daemon installed;
 $(BIN)/nscat: nscat
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/nscat: nscat
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp nscat $(EXPORTBIN)/nscat
+	@cp ../bin/nscat $(EXPORTBIN)/nscat
 	@chmod 755 $(EXPORTBIN)/nscat
 	@echo $(EXPORTBIN)/nscat installed;
 $(BIN)/ns_test: ns_test
-	-mv $@ $(BIN)/OLD$?
-	cp $? $@
+#	-mv $@ $(BIN)/OLD$?
+	cp ../bin/$? $@
 	chown root $@
 	chgrp bin $@
 	chmod 755 $@
 $(EXPORTBIN)/ns_test: ns_test
 	@(if [ ! -d $(EXPORTBIN) ]; then mkdir -p $(EXPORTBIN) ; fi ; )
-	@cp ns_test $(EXPORTBIN)/ns_test
+	@cp ../bin/ns_test $(EXPORTBIN)/ns_test
 	@chmod 755 $(EXPORTBIN)/ns_test
-	@echo $(EXPORTBIN)/ns_test installed;	
+	@echo $(EXPORTBIN)/ns_test installed;
 
 $(BIN):
 	-mkdir -p $@
@@ -568,9 +611,9 @@ $(LIBMANDIR)/Cns_setactualpath.$(LIBMANSUFFIX):	Cns_setactualpath.man
 $(LIBMANDIR)/Cns_delactualpath.$(LIBMANSUFFIX):	Cns_delactualpath.man
 	nroff -man Cns_delactualpath.man > $(LIBMANDIR)/Cns_delactualpath.$(LIBMANSUFFIX)
 $(LIBMANDIR)/Cns_Data_daemon.$(LIBMANSUFFIX):	Cns_Data_daemon.man
-	nroff -man Cns_Data_daemon.man > $(LIBMANDIR)/Cns_Data_daemon.$(LIBMANSUFFIX)	
+	nroff -man Cns_Data_daemon.man > $(LIBMANDIR)/Cns_Data_daemon.$(LIBMANSUFFIX)
 $(LIBMANDIR)/Cns_get_Data_daemon.$(LIBMANSUFFIX):	Cns_get_Data_daemon.man
-	nroff -man Cns_get_Data_daemon.man > $(LIBMANDIR)/Cns_get_Data_daemon.$(LIBMANSUFFIX)	
+	nroff -man Cns_get_Data_daemon.man > $(LIBMANDIR)/Cns_get_Data_daemon.$(LIBMANSUFFIX)
 $(LIBMANDIR)/Cns_opendir_t.$(LIBMANSUFFIX):	Cns_opendir_t.man
 	nroff -man Cns_opendir_t.man > $(LIBMANDIR)/Cns_opendir_t.$(LIBMANSUFFIX)
 $(LIBMANDIR)/Cns_readdir_t.$(LIBMANSUFFIX):	Cns_readdir_t.man
@@ -609,9 +652,17 @@ $(LIBMANDIR)/Cns_opendir_t_xrd.$(LIBMANSUFFIX):	Cns_opendir_t_xrd.man
 	nroff -man Cns_opendir_t_xrd.man > $(LIBMANDIR)/Cns_opendir_t_xrd.$(LIBMANSUFFIX)
 $(LIBMANDIR)/Cns_getattr_id.$(LIBMANSUFFIX):	Cns_getattr_id.man
 	nroff -man Cns_getattr_id.man > $(LIBMANDIR)/Cns_getattr_id.$(LIBMANSUFFIX)
+$(LIBMANDIR)/Cns_rfsync.$(LIBMANSUFFIX):	Cns_rfsync.man
+	nroff -man Cns_rfsync.man > $(LIBMANDIR)/Cns_rfsync.$(LIBMANSUFFIX)
+$(LIBMANDIR)/Cns_refreshcache.$(LIBMANSUFFIX):	Cns_refreshcache.man
+	nroff -man Cns_refreshcache.man > $(LIBMANDIR)/Cns_refreshcache.$(LIBMANSUFFIX)
+$(LIBMANDIR)/Cns_unlink_t.$(LIBMANSUFFIX):	Cns_unlink_t.man
+	nroff -man Cns_unlink_t.man > $(LIBMANDIR)/Cns_unlink_t.$(LIBMANSUFFIX)
+$(LIBMANDIR)/Cns_setmetadata.$(LIBMANSUFFIX):	Cns_setmetadata.man
+	nroff -man Cns_setmetadata.man > $(LIBMANDIR)/Cns_setmetadata.$(LIBMANSUFFIX)
 $(LIBMANDIR)/Utils.$(LIBMANSUFFIX):	Utils.man
 	nroff -man Utils.man > $(LIBMANDIR)/Utils.$(LIBMANSUFFIX)
-	
+
 $(MANDIR)/nschclass.$(MANSUFFIX):	nschclass.man
 	nroff -man nschclass.man > $(MANDIR)/nschclass.$(MANSUFFIX)
 $(MANDIR)/nschmod.$(MANSUFFIX):	nschmod.man
@@ -634,6 +685,12 @@ $(MANDIR)/nslisttape.$(MANSUFFIX):	nslisttape.man
 	nroff -man nslisttape.man > $(MANDIR)/nslisttape.$(MANSUFFIX)
 $(MANDIR)/nsls.$(MANSUFFIX):	nsls.man
 	nroff -man nsls.man > $(MANDIR)/nsls.$(MANSUFFIX)
+$(MANDIR)/ilist.$(MANSUFFIX):	ilist.man
+	nroff -man ilist.man > $(MANDIR)/ilist.$(MANSUFFIX)
+$(MANDIR)/iput.$(MANSUFFIX):	iput.man
+	nroff -man iput.man > $(MANDIR)/iput.$(MANSUFFIX)
+$(MANDIR)/iget.$(MANSUFFIX):	iget.man
+	nroff -man iget.man > $(MANDIR)/iget.$(MANSUFFIX)
 $(MANDIR)/nsmkdir.$(MANSUFFIX):	nsmkdir.man
 	nroff -man nsmkdir.man > $(MANDIR)/nsmkdir.$(MANSUFFIX)
 $(MANDIR)/nsmodifyclass.$(MANSUFFIX):	nsmodifyclass.man
@@ -754,7 +811,7 @@ $(EXPORTMAN)/man3/Cns_readdir_t.$(LIBMANSUFFIX):	Cns_readdir_t.man
 $(EXPORTMAN)/man3/Cns_readdirc_t.$(LIBMANSUFFIX):	Cns_readdirc_t.man
 	cp Cns_readdirc_t.man $(EXPORTMAN)/man3/Cns_readdirc_t.$(LIBMANSUFFIX)
 $(EXPORTMAN)/man3/Cns_readdirxt_t.$(LIBMANSUFFIX):	Cns_readdirxt_t.man
-	cp Cns_readdirxt_t.man $(EXPORTMAN)/man3/Cns_readdirxt_t.$(LIBMANSUFFIX)	
+	cp Cns_readdirxt_t.man $(EXPORTMAN)/man3/Cns_readdirxt_t.$(LIBMANSUFFIX)
 $(EXPORTMAN)/man3/Cns_readdirx_t.$(LIBMANSUFFIX):	Cns_readdirx_t.man
 	cp Cns_readdirx_t.man $(EXPORTMAN)/man3/Cns_readdirx_t.$(LIBMANSUFFIX)
 $(EXPORTMAN)/man3/Cns_readdirxc_t.$(LIBMANSUFFIX):	Cns_readdirxc_t.man
@@ -785,9 +842,17 @@ $(EXPORTMAN)/man3/Cns_opendir_t_xrd.$(LIBMANSUFFIX):	Cns_opendir_t_xrd.man
 	cp Cns_opendir_t_xrd.man $(EXPORTMAN)/man3/Cns_opendir_t_xrd.$(LIBMANSUFFIX)
 $(EXPORTMAN)/man3/Cns_getattr_id.$(LIBMANSUFFIX):	Cns_getattr_id.man
 	cp Cns_getattr_id.man $(EXPORTMAN)/man3/Cns_getattr_id.$(LIBMANSUFFIX)
+$(EXPORTMAN)/man3/Cns_rfsync.$(LIBMANSUFFIX):	Cns_rfsync.man
+	cp Cns_rfsync.man $(EXPORTMAN)/man3/Cns_rfsync.$(LIBMANSUFFIX)
+$(EXPORTMAN)/man3/Cns_refreshcache.$(LIBMANSUFFIX):	Cns_refreshcache.man
+	cp Cns_refreshcache.man $(EXPORTMAN)/man3/Cns_refreshcache.$(LIBMANSUFFIX)
+$(EXPORTMAN)/man3/Cns_unlink_t.$(LIBMANSUFFIX):	Cns_unlink_t.man
+	cp Cns_unlink_t.man $(EXPORTMAN)/man3/Cns_unlink_t.$(LIBMANSUFFIX)
+$(EXPORTMAN)/man3/Cns_setmetadata.$(LIBMANSUFFIX):	Cns_setmetadata.man
+	cp Cns_setmetadata.man $(EXPORTMAN)/man3/Cns_setmetadata.$(LIBMANSUFFIX)
 $(EXPORTMAN)/man3/Utils.$(LIBMANSUFFIX):	Utils.man
 	cp Utils.man $(EXPORTMAN)/man3/Utils.$(LIBMANSUFFIX)
-	
+
 $(EXPORTMAN)/man1/nschclass.$(MANSUFFIX):	nschclass.man
 	cp nschclass.man $(EXPORTMAN)/man1/nschclass.$(MANSUFFIX)
 $(EXPORTMAN)/man1/nschmod.$(MANSUFFIX):	nschmod.man
@@ -810,6 +875,12 @@ $(EXPORTMAN)/man1/nslisttape.$(MANSUFFIX):	nslisttape.man
 	cp nslisttape.man $(EXPORTMAN)/man1/nslisttape.$(MANSUFFIX)
 $(EXPORTMAN)/man1/nsls.$(MANSUFFIX):	nsls.man
 	cp nsls.man $(EXPORTMAN)/man1/nsls.$(MANSUFFIX)
+$(EXPORTMAN)/man1/ilist.$(MANSUFFIX):	ilist.man
+	cp ilist.man $(EXPORTMAN)/man1/ilist.$(MANSUFFIX)
+$(EXPORTMAN)/man1/iput.$(MANSUFFIX):	iput.man
+	cp iput.man $(EXPORTMAN)/man1/iput.$(MANSUFFIX)
+$(EXPORTMAN)/man1/iget.$(MANSUFFIX):	iget.man
+	cp iget.man $(EXPORTMAN)/man1/iget.$(MANSUFFIX)
 $(EXPORTMAN)/man1/nsmkdir.$(MANSUFFIX):	nsmkdir.man
 	cp nsmkdir.man $(EXPORTMAN)/man1/nsmkdir.$(MANSUFFIX)
 $(EXPORTMAN)/man1/nsmodifyclass.$(MANSUFFIX):	nsmodifyclass.man
@@ -844,7 +915,7 @@ exportshr:
 ####################### CLEANING RULES ########################
 
 clean:
-	-@$(RM) -f $(CLIENT) $(PROGS_D) *.o *.a ,* .es1 core
+	-@$(RM) -f ../bin/* $(CLIENT) $(PROGS_D) *.o *.a ,* .es1 core
 
 clobber:        clean
 	-@$(RM) -f $(CLIENT) $(PROGS_D)

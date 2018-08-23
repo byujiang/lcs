@@ -17,7 +17,7 @@ static char location[MAXPATHLEN];//the path of the file int the cached server
 /*check wether the file exists convet it to data block path, 
  *  *  * path:the path of the target file, actual_path:the path of data block, 
  *   *   * sucess return 0 or return errno*/
-int sql_check(const char * path,  char *actual_path,int *filesize)
+int sql_check(const char * path,  char *actual_path,size_t *filesize)
 {
         int fd;
 	int mode;
@@ -50,7 +50,7 @@ int xrdlocal_read(const char *path, size_t size, off_t offset,char *buf)
 {
         int fd;
         int res=0;
-        int filesize;
+        size_t filesize;
         if((res=sql_check(path, location,&filesize))==0){
                 Cns_download_seg(path, offset, size, location, filesize, NULL);
                 fd=open(location, O_RDONLY);
@@ -73,8 +73,8 @@ int xrdlocal_read(const char *path, size_t size, off_t offset,char *buf)
 int main(int argc, char *argv[])
 {
         char buf[1024*1024*5];
-        long int size=5*1024*1024-786;
-        long int offset=0;
+        size_t  size=5*1024*1024-786;
+        off_t offset=0;
 	char *path;
 	char *p;
 	int res;

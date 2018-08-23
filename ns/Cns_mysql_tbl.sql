@@ -5,8 +5,7 @@
 --       @(#)Cns_mysql_tbl.sql,v 1.4 2004/03/03 08:51:30 CERN IT-DS/HSM Jean-Philippe Baud
  
 --     Create name server MySQL tables.
-
--- CREATE DATABASE cns_db;
+--  CREATE DATABASE cns_db;
 USE cns_db;
 CREATE TABLE Cns_class_metadata (
        rowid BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -88,7 +87,7 @@ CREATE TABLE Cns_file_transform_metadata (
        filemode INTEGER UNSIGNED,
        nlink INTEGER,
        dev INTEGER UNSIGNED,
-       ino INTEGER UNSIGNED,	
+       ino BIGINT UNSIGNED,	
        owner_uid INTEGER UNSIGNED,
        gid INTEGER UNSIGNED,
        filesize BIGINT UNSIGNED,
@@ -97,7 +96,7 @@ CREATE TABLE Cns_file_transform_metadata (
        ctime INTEGER,
        fileclass SMALLINT,
        status CHAR(1) BINARY,
-	bitmap varchar(61440) BINARY)
+	bitmap text)
         ENGINE = InnoDB;
 
 CREATE TABLE Cns_unique_transform_id (
@@ -107,7 +106,7 @@ CREATE TABLE Cns_unique_transform_id (
 CREATE TABLE Cns_seg_transform_metadata(
 	rowid BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 	FD BIGINT UNSIGNED,
-	seg_size FLOAT,
+	seg_size BIGINT UNSIGNED,
 	path VARCHAR(231) BINARY)
 	ENGINE =InnoDB;
 

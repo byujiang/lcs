@@ -11,7 +11,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <python3.5m/Python.h>
+#ifdef PY36
+	#include <python3.6m//Python.h>
+#else
+	#include <python3.5m//Python.h>
+#endif
 #if defined(_WIN32)
 #include <winsock2.h>
 #else
@@ -37,7 +41,7 @@
 
 char localfilepath[128]={0};
 int localfileid=-1;
-char configfile_path[]="/etc/profile1";
+char configfile_path[]="/etc/cdfs/cdfs.conf";
 char config_key[]="PY_MODULE_PATH";
 char py_module_path[128];
 
@@ -170,7 +174,8 @@ int Cns_main(struct main_args *main_args)
 	struct servent *sp;
 	int thread_index;
 	struct timeval timeval;
-
+	uid_t puid;
+	gid_t pgid;
 
 	jid = getpid();
 	strcpy (func, "Cns_serv");
@@ -218,20 +223,30 @@ int Cns_main(struct main_args *main_args)
 	dbfd.idx = CNS_NBTHREADS;
 	if (Cns_opendb (db_srvr, db_user, db_pwd, &dbfd) < 0)
 		return (SYERR);
-	if (Cns_get_fmd_by_fullid (&dbfd, (u_signed64) 0, "/", &direntry, 0, NULL) < 0) {
+	if (Cns_get_ftmd_by_fullid (&dbfd, (u_signed64) 0, "/", &direntry, 0, NULL) < 0) {
 		if (serrno != ENOENT)
 			return (SYERR);
 		nslogit (func, "creating /\n");
 		memset (&direntry, 0, sizeof(direntry));
-		direntry.fileid = 2;
+		direntry.fileid = 1;
 		strcpy (direntry.name, "/");
+		strcpy (direntry.path, "/");
 		direntry.filemode = S_IFDIR | 0755;
+		direntry.nlink = 0;
+		direntry.dev = 0;
+		direntry.ino = 0;
+		puid = getuid();
+		pgid = getgid();
+		direntry.uid = puid;
+		direntry.gid = pgid;
+		direntry.filesize = 0;
 		direntry.atime = time (0);
 		direntry.mtime = direntry.atime;
 		direntry.ctime = direntry.atime;
+		direntry.fileclass = 0;
 		direntry.status = '-';
 		(void) Cns_start_tr (0, &dbfd);
-		if (Cns_insert_fmd_entry (&dbfd, &direntry) < 0) {
+		if (Cns_insert_ftmd_entry (&dbfd, &direntry) < 0) {
 			(void) Cns_abort_tr (&dbfd);
 			(void) Cns_closedb (&dbfd);
 			return (SYERR);
@@ -695,7 +710,7 @@ int procreq(int magic,int req_type,char *req_data,char *clienthost,struct Cns_sr
 		c = Cns_srv_getactualpath (magic, req_data, clienthost, thip);
 		break;
 	case CNS_SETFILETRANSFORMMETADATA:
-		c = Cns_srv_setfile_transform_metadata (magic, req_data, clienthost, thip);
+		c = Cns_srv_set_metadata(magic, req_data, clienthost, thip);
 		break;
 	case CNS_GETDATADAEMON:
 		c = Cns_srv_get_Data_daemon (magic, req_data, clienthost, thip);
@@ -731,14 +746,23 @@ int procreq(int magic,int req_type,char *req_data,char *clienthost,struct Cns_sr
 		c = Cns_srv_touch_t (magic, req_data, clienthost, thip);
 		break;
 	case CNS_STAT_T:
-		c= Cns_srv_stat_t (magic, req_data, clienthost, thip);
+		c = Cns_srv_stat_t (magic, req_data, clienthost, thip);
 		break;
 	case CNS_OPENDIR_T_XRD:
-		c= Cns_srv_opendir_t_xrd (magic, req_data, clienthost, thip);
+		c = Cns_srv_opendir_t_xrd (magic, req_data, clienthost, thip);
 		break;
 	case CNS_GETATTR_ID:
-		c=Cns_srv_getattr_id (magic, req_data, clienthost, thip);
+		c = Cns_srv_getattr_id (magic, req_data, clienthost, thip);
 		break;
+	case CNS_RFSYNC:
+		c = Cns_srv_rfsync (magic, req_data, clienthost, thip, py_module_path);
+		break;
+	case CNS_REFRESHCACHE:
+		c = Cns_srv_refreshcache(magic, req_data, clienthost, thip);
+		break;
+	case CNS_UNLINK_T:
+		c = Cns_srv_unlink_t(magic, req_data, clienthost, thip);
+		break; 
 	default:
 		sendrep (thip->s, MSG_ERR, NS003, req_type);
 		c = SEINTERNAL;

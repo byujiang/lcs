@@ -8,6 +8,7 @@ static char sccsid[] = "@(#)sendrep.c,v 1.8 2003/08/28 10:16:29 CERN IT-PDP/DM J
 #endif /* not lint */
 
 #include<stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <string.h>

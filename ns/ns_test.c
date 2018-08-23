@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
         	exit(0);
 	}
 	//16 xrootd_read  40 xrootd_write
-	int filesize=0;
+	size_t filesize=0;
 	int res;
 	if((res=xrd_open(argv[1], 16, 0, actual_path, &filesize))==0){
               	printf("data block open success\n");
@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
 	int tmp=1;
 	int tosize=0;
 
-//	int in = open("/dev/shm/cp.tmp",O_CREAT|O_RDWR,S_IREAD|S_IWRITE);
+	int in = open("/dev/shm/cp.tmp",O_CREAT|O_RDWR,S_IREAD|S_IWRITE);
 	while (tosize<size) {
        		if(xrd_read(actual_path,BUFLEN,offset,NULL, argv[1], filesize)==0){
 			printf("%d.read %d success\n",tmp,strlen(buff));
@@ -94,8 +94,8 @@ int main(int argc, char *argv[])
 			write(in,buff,strlen(buff));
 			printf("------%d  %d\n", tmp, offset);
 		}
-
-*/		offset=offset+BUFLEN;
+*/
+		offset=offset+BUFLEN;
                 tosize=tosize+BUFLEN;
 		tmp++;
 	}
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
                         write(in,buff2,16384);
 		}
 */
-//	close(in);
+	close(in);
 	free(buff);
 
 	

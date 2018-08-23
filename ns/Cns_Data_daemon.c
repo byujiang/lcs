@@ -73,21 +73,19 @@ Cns_setfile_transform_metadata(const char *filename, struct Cns_filestat fst)
 	marshall_LONG (sbp, msglen);
 
 	/* Build request body */
-
+	marshall_HYPER (sbp, thip->cwd);
 	marshall_LONG (sbp, fst.uid);
 	marshall_LONG (sbp, fst.gid);
-	marshall_LONG (sbp, fst.ino);
-	marshall_LONG (sbp, fst.mtime);
-	marshall_LONG (sbp, fst.ctime);
-	marshall_LONG (sbp, fst.atime);
+	marshall_HYPER (sbp, fst.ino);
+	marshall_TIME_T (sbp, fst.mtime);
+	marshall_TIME_T (sbp, fst.ctime);
+	marshall_TIME_T (sbp, fst.atime);
 	marshall_LONG (sbp, fst.nlink);
 	marshall_LONG (sbp, fst.dev);
 	marshall_STRING (sbp, fst.path);
-	marshall_LONG (sbp, fst.filesize);
-	marshall_LONG (sbp, fst.filemode);
-	marshall_HYPER (sbp, thip->cwd);
+	marshall_HYPER (sbp, fst.filesize);
+	marshall_WORD (sbp, fst.filemode);
 	marshall_STRING (sbp, filename);
-	//marshall_STRING (sbp, file_transform_metadata);
 
 	msglen = sbp - sendbuf;
 	marshall_LONG (q, msglen);	/* update length field */

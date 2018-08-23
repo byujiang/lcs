@@ -7,12 +7,17 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <pthread.h>
+#include <queue>
 #include "Cns_api.h"
 
 
 #define MAXPATHLEN 1023 //the largest size of the file path 
 #define UNIT_SIZE (1024*1024)
 #define THREAD_NUM 5
+#define MAXURLLEN 256
+#define CACHEFILE "/dev/shm/data.json"
+
+static char conf_file[]="/etc/cdfs/cdfs.conf";
 
 struct thread_argument
 {
@@ -28,27 +33,44 @@ void *thread_download(void *);
 static char location[MAXPATHLEN];//the path of the file int the cached server
 
 int path_filter(char *path){
-	char c[]="/data/xrootdfs";
-	char *p;
-	char *tmp_path=(char *)malloc(strlen(path)-strlen(c)+1);
-	if((p=strstr(path, c))==NULL){
-		printf("No such subpath of the path\n");
-		return 1;
-	}else if(p==path){
-		strncpy(tmp_path, path+strlen(c), (strlen(path)-strlen(c)));
-		tmp_path[strlen(path)-strlen(c)]='\0';
-		strcpy(path,tmp_path);
-	}else{
-		printf("the subpath is not corect\n");
-		return 1;
+	int mtag;
+	char c[256];
+	char tag[64];
+        if(get_conf_value(conf_file, "MOUNT_TAG", tag)){
+                printf("Configure wrong\n");
+                return 1;
+        }else{
+                mtag=atoi(tag);
+        }
+        if(get_conf_value(conf_file, "MOUNT_DIR", c)){
+                printf("Configure wrong\n");
+                return 1;
+        }else{
+                if(c[strlen(c)-1]=='/')
+                        c[strlen(c)-1]='\0';
+        }
+	if(mtag==1){
+		char *p;
+		char *tmp_path=(char *)malloc(strlen(path)-strlen(c)+1);
+		if((p=strstr(path, c))==NULL){
+			printf("No such subpath of the path\n");
+			return 1;
+		}else if(p==path){
+			strncpy(tmp_path, path+strlen(c), (strlen(path)-strlen(c)));
+			tmp_path[strlen(path)-strlen(c)]='\0';
+			strcpy(path,tmp_path);
+		}else{
+			printf("the subpath is not corect\n");
+			return 1;
+		}
+		free(tmp_path);
 	}
-	free(tmp_path);
 	return 0;
 }
 /*check wether the file exists convet it to data block path, 
  *  *  * path:the path of the target file, actual_path:the path of data block, 
  *   *   * sucess return 0 or return errno*/
-int sql_check(char * path,  char *actual_path, int *filesize)
+int sql_check(char * path,  char *actual_path, size_t *filesize)
 {
         int fd;
         int mode;
@@ -77,7 +99,7 @@ int sql_check(char * path,  char *actual_path, int *filesize)
 int xrd_access(const char *path,int mask)
 {
         int res=0;
-        int filesize;
+        size_t filesize;
 	char *path_t=(char *)malloc(strlen(path)+1);
 	strcpy(path_t,path);
 	if(path_filter(path_t))
@@ -92,7 +114,7 @@ int xrd_access(const char *path,int mask)
 /*open file if it exists, 
  *  * path:the path of the target file  flags:open mode  mode:access permission bits(only use when create file), 
  *   * success return 0 or return errno */
-int xrd_open(const char *path, int flags, mode_t mode, char * actual_path, int *filesize)
+int xrd_open(const char *path, int flags, mode_t mode, char * actual_path, size_t *filesize)
 {
         int res=0;
 	char *path_t=(char *)malloc(strlen(path)+1);
@@ -125,7 +147,7 @@ int xrd_open(const char *path, int flags, mode_t mode, char * actual_path, int *
 /*read file if it exists, 
  *  * actual_path:the localpath of the target file   offset:the start of data block  size: size of the data block
  *   * sucess return 0 or return errno*/
-int xrd_read(const char *actual_path, size_t size, off_t offset,char *buff, char *path, int filesize)
+int xrd_read(const char *actual_path, size_t size, off_t offset,char *buff, char *path, size_t filesize)
 {
 
 	int i;
@@ -183,7 +205,7 @@ void *thread_download(void *arg)
 int xrd_getattr(const char *path, struct stat *buf)
 {
         int res=0;
-        int filesize;
+        size_t filesize;
         char *path_t=(char *)malloc(strlen(path)+1);
         strcpy(path_t,path);
         if(path_filter(path_t))
@@ -200,7 +222,7 @@ int xrd_opendir(const char *path, int *child_dirid)
 {
 	int res;
 	int res1;
-	int filesize;
+	size_t filesize;
 	int child_dirnum=0;
 	int size=1000;
 	int *child_dirlist=(int *)malloc(size*sizeof(int));
@@ -279,4 +301,222 @@ int xrd_write(const char *actual_path, size_t size, off_t offset)
 int xrd_close(const char *actual_path)
 {
 	
+}
+
+/*upload file from f1 to d1 between stations*/
+int xrd_rfsync(const char *from, const char *to)
+{
+	int res;
+	size_t filesize;
+	struct stat st;
+	char *path_f=(char *)malloc(strlen(from)+1);
+	char path_t[CA_MAXPATHLEN+1];
+	char basename[128];
+
+	strcpy(path_f, from);
+	if(stat(path_f, &st)==-1){
+		return ENOENT; 
+	}else{
+		if(S_ISDIR(st.st_mode)){
+			return EISDIR;
+		}	
+	}
+	splitname(path_f, basename);
+
+	strcpy(path_t, to);
+	if(path_filter(path_t))
+		return -1;
+	res=sql_check(path_t, location, &filesize);
+	if(res==0){
+		res=-ENOTDIR;
+	}else if(res==21){
+		if(path_t[strlen(path_t)-1]!='/'){
+			sprintf(path_t, "%s/%s_ul", path_t, basename);
+		}else{
+			sprintf(path_t, "%s%s_ul", path_t, basename);
+		}
+		res=sql_check(path_t, location, &filesize);
+		if(res==21||res==0){
+			res=-EEXIST ;
+		}else{
+			res=Cns_rfsync(path_t, from);
+			if(res==0)
+				res=0;
+			else if(res==1)
+				res=EEXIST;
+			else if(res==2)
+				res=EACCES;
+			else
+				res=-1;
+		}
+	}else{
+		res=-ENOENT;	
+	}
+	free(path_f);
+	return res;
+}
+
+int xrd_unlink(char *path, char *name)
+{
+	int res;
+	if(!path || !name || *path!='/'){
+		fprintf(stderr, "xrd_unlink parameter wrong\n");
+		return 1;
+	}
+	res=Cns_unlink_t(path, name);
+	return res;
+}
+
+/*refresh the cachefile, set bitmap  and  the cachefile NULL*/
+int xrd_refresh(char *cachefile ,char *sourcefile, size_t filesize)
+{
+	int res;
+	if(cachefile == NULL || sourcefile == NULL || *cachefile!='/' || *sourcefile!='/' || filesize<=0){
+		return -1;
+	}
+	if(path_filter(sourcefile)){
+		return -1;
+	}	
+	res=Cns_refreshcache(cachefile, sourcefile, filesize);
+	return res;
+}
+
+/*refresh the cache metadata */
+int xrd_refresh_metadata(char *path)
+{
+	int res;
+        char *ip=(char *)malloc(16);
+        char *consol=(char *)malloc(8);
+        char *tag=(char *)malloc(8);
+	char *mdir=(char *)malloc(CA_MAXPATHLEN+1);
+	char *basename=(char *)malloc(CA_MAXPATHLEN+1);
+	char *url_path=(char *)malloc(MAXURLLEN+1);
+	int mtag;
+	vector <string> filename;
+	vector <struct Cns_filestat> st;
+	int filenum;
+	vector <string> old_filename;
+	vector <struct stat> old_st; 
+	int old_filenum;
+	vector <int> ino_tmp;
+	queue <string> dir;
+	string str_tmp;
+	char path_tmp[CA_MAXPATHLEN+1];
+
+	if(path==NULL || *path!='/'){
+		return -1;
+	}
+	if(path_filter(path)){
+		return -1;
+	}
+	
+	uid_t uid=getuid();
+	gid_t gid=getgid();
+	if(get_conf_value(conf_file, "DATA_SERVER_IP", ip)){
+		fprintf(stderr, "Configyre file has no server IP\n");
+		return -1;
+	}
+        if(get_conf_value(conf_file, "DATA_SERVER_CONSOL", consol)){
+                fprintf(stderr, "Configure file has no server consol\n");
+                return -1;
+        }
+        if(get_conf_value(conf_file, "MOUNT_TAG", tag)){
+                fprintf(stderr,"Configure file has no mounttag\n");
+                return -1;
+        }else{
+                mtag=atoi(tag);
+        }
+        if((res=get_conf_value(conf_file, "MOUNT_DIR", mdir)) && mtag==1){
+                fprintf(stderr, "Configure file has no mountdir when mounttag=1\n");
+                return -1;
+        }else if(mtag==1 && res==0) {
+                if(mdir[strlen(mdir)-1]=='/')
+                        mdir[strlen(mdir)-1]='\0';
+        }
+	if(path[strlen(path)-1]=='/')
+		path[strlen(path)-1]='\0';
+
+	str_tmp=path;
+	dir.push(str_tmp);
+	while(!dir.empty()){
+		strcpy(path_tmp, dir.front().c_str());
+		dir.pop();
+		sprintf(url_path, "http://%s:%s/list?uid=%d&gid=%d&path=%s", ip, consol, uid, gid, path_tmp);
+		res=get_jsonbycurl(url_path, CACHEFILE);
+		if(res){
+			fprintf(stderr, "get_jsonbycurl failed\n");
+			return 1;
+		}	
+		res=get_metadatabyjson(CACHEFILE, filename, st);
+		if(res){
+			fprintf(stderr, "file not exist or not the data directoty\n");
+			return 1;
+		}
+/*
+	for(int i=0; i<filename.size(); i++){
+		printf_cnsfilestat(i, st[i]);
+	}
+*/
+		
+		res=xrd_readdir(path_tmp, old_filename, old_st);
+		old_filenum=old_st.size();
+		filenum=filename.size();
+		char *pathsplit=(char *)malloc(strlen(path_tmp)+1);
+		strcpy(pathsplit, path_tmp);
+                splitname(pathsplit, basename);
+                filename[0]=basename;
+                strcpy(st[0].name,basename);
+		free(pathsplit);
+
+		if(res==-2){
+			fprintf(stderr, "Directory exist but not the data directory\n");
+			return 1;
+			
+		}else if(res==0 || res==-1){
+			/*for add and update*/
+			for(int i=0; i<filenum; i++){	
+				if(mtag==1){
+					if(create_vpath(mdir, st[i].path, st[i].filemode))
+						return 1;
+				}
+				if(res=Cns_setmetadata(filename[i].c_str(), st[i])){
+					fprintf(stderr, "file metadata insert failed\n");
+					return 1;
+				}
+			/*	if(st[i].filemode &S_IFDIR && i>0){
+					str_tmp=st[i].path;
+					dir.push(str_tmp);
+				}	*/
+			}
+			/*for delete*/
+			for(int j=0; j<old_filenum; j++){
+				int tag=0;
+				for(int k=1; k<filenum; k++){
+					if(strcmp(old_filename[j].c_str(), filename[k].c_str())==0){
+						tag=1;
+						break;
+					}
+				}
+				if(tag==0){
+					res=Cns_unlink_t(path_tmp, old_filename[j].c_str());
+					if(res){
+						fprintf(stderr, "unlink old file %s/%s failed", path_tmp, old_filename[j].c_str());
+						return 1;
+					}	
+				}
+			}
+			filename.clear();
+			st.clear();
+		}else{
+			fprintf(stderr, "xrd_readdir %s failed\n", path_tmp);
+			return 1;
+		}
+
+	}
+        free(ip);
+        free(consol);
+        free(tag);
+        free(mdir);
+	free(basename);
+	return res;
 }

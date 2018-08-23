@@ -1,0 +1,259 @@
+/*	iget - download files from remote station  */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <queue>
+#include "Cgetopt.h"
+#include "Cns_api.h"
+#include "serrno.h"
+#define BUFLEN 1048576 //1M 
+int rflag=0;
+int cmflag=0;
+
+int mktargetdir(char *filepath, char *targetpath)
+{
+	char basename[CA_MAXPATHLEN+1];
+	char path_s[CA_MAXPATHLEN+1];
+	strcpy(path_s, filepath);
+	splitname(path_s, basename);
+	sprintf(targetpath, "%s/%s", targetpath, basename);
+	if(mkdirs(targetpath, 0755)!=0){
+		return 1;
+	}	
+	return 0;
+	
+}
+
+int f_cp(char *actual_path, char *targetpath, char *basename, int filesize)
+{
+	FILE *in, *out;
+	char fullpath[CA_MAXPATHLEN+1];	
+	int len;
+	char buff[BUFLEN];
+	int totalsize=0;
+	sprintf(fullpath,"%s/%s",targetpath, basename);
+	if((in=fopen(actual_path, "rb"))==NULL){
+		fprintf(stderr,"open data_dir %s failure %s\n", actual_path, strerror(errno));
+		return 1;
+	}
+	if((out=fopen(fullpath, "wb+"))==NULL){
+		fprintf(stderr,"open target_file %s failure %s\n", actual_path, strerror(errno));
+		return 1;
+	}
+	while(totalsize<=filesize-BUFLEN){
+		len=fread(buff,1,sizeof(buff),in);
+		fwrite(buff, 1, len, out);
+		totalsize+=len;
+	}
+	if(filesize-totalsize!=0){
+		len=fread(buff,1,(filesize-totalsize),in);
+		fwrite(buff,1,len,out);
+	}
+	fclose(in);
+	fclose(out);	
+	return 0;	
+}
+
+int f_cp_fd(char *actual_path, char *targetpath, char *basename, int filesize)
+{
+        int fd_in, fd_out;
+        char fullpath[CA_MAXPATHLEN+1];
+        char buff[BUFLEN];
+        int totalsize = 0;
+	ssize_t len, nbwrite;
+	int res = 0;
+        sprintf(fullpath,"%s/%s",targetpath, basename);
+        if((fd_in = open(actual_path, O_RDONLY))==NULL){
+                fprintf(stderr,"open data_dir %s failure %s\n", actual_path, strerror(errno));
+                return -1;
+        }
+        if((fd_out = open(fullpath, O_WRONLY|O_CREAT))==NULL){
+                fprintf(stderr,"open target_file %s failure %s\n", actual_path, strerror(errno));
+                return -1;
+        }
+        do {
+                if ((len = read(fd_in, buff, BUFLEN)) < 0){
+			fprintf(stderr, "read file error: %s\n", strerror(errno));
+			res = -1;
+			break;
+		}
+                nbwrite = write(fd_out, buff, len); 
+                if ((nbwrite < 0) || (nbwrite != len)){
+			fprintf(stderr, "write file error: %s\n", strerror(errno));
+			res = -1;
+			break;
+		}
+                totalsize += len;
+        } while(totalsize < filesize);
+        close(fd_in);
+        close(fd_out);
+        return res;
+}
+
+int procget(char *actual_path, int size, int offset, char *sourcepath, char *targetpath)
+{
+        int res;
+	char basename[CA_MAXPATHLEN+1];
+	char fullpath[CA_MAXPATHLEN+1];
+        res = xrd_read(actual_path, size, 0, NULL, sourcepath, size);
+	if(!res){
+		strcpy(fullpath, sourcepath);
+		splitname(fullpath, basename);
+		res = f_cp_fd(actual_path, targetpath, basename, size);			
+	}
+        return res;
+}
+
+int openpath(char* sourcepath, char* actual_path, int *filesize){
+        int res;
+        res=xrd_open(sourcepath, 16, 0, actual_path, filesize);
+        return res;
+}
+
+int procdir(char *sourcepath, char *targetpath){
+	queue <string> dir;
+	vector <string> filename;
+	vector <struct stat> st;
+	string path;
+	int res;
+	char fullpath[CA_MAXPATHLEN+1];
+	char actual_path[CA_MAXPATHLEN+1];
+	char path_t[CA_MAXPATHLEN+1];
+	int filesize;
+	int len;
+	len=strlen(sourcepath);
+	if(sourcepath[len-1]=='/'){
+		sourcepath[len-1]='\0';
+	}
+	dir.push(sourcepath);
+	strcpy(path_t, targetpath);
+	mktargetdir(sourcepath, path_t);
+	while(!dir.empty()){
+		path=dir.front();
+		dir.pop();
+		if((res=xrd_readdir(path.c_str(), filename, st))==0){
+			for(int i=0; i<filename.size();i++){
+				sprintf(fullpath, "%s/%s", path.c_str(), filename[i].c_str());
+				if(S_ISDIR(st[i].st_mode)){
+					dir.push(fullpath);
+					if(mktargetdir(fullpath, path_t)!=0){
+						printf("targetpath: %s\n", path_t);
+						fprintf(stderr,"%s: mkdir failure %s\n", path_t, strerror(errno));
+						res=1;
+					}
+				}else{
+					if(int t=(openpath(fullpath, actual_path, &filesize))){
+						fprintf(stderr,"%s: iget--iopen failure %s\n", fullpath, strerror(errno));
+						res=1;	
+					}
+					if(int tt=(procget(actual_path, filesize, 0, fullpath, path_t))){
+						fprintf(stderr,"%s: iget--iread failure %s\n", fullpath, strerror(errno));
+						res=1;
+					}
+				}
+			}
+			filename.clear();
+			st.clear();	
+		}else{
+			res=1;
+		}
+		
+	}
+	return res;
+}
+
+
+int main(int argc, char **argv)
+{
+        int c;
+	int i;
+        int errflg = 0;
+	Coptind=1;
+	Copterr = 1;
+	char *path;
+	char targetpath[CA_MAXPATHLEN+1];
+	char sourcepath[CA_MAXPATHLEN+1];
+	struct stat s_buf;
+	char actual_path[CA_MAXPATHLEN+1];
+	int filesize;
+	int res;
+	char path_buff[CA_MAXPATHLEN+1];
+        static struct Coptions longopts[] = {
+		{"comment", NO_ARGUMENT, &cmflag, 1},
+	        {0, 0, 0, 0}
+        };
+	/*for args*/
+        while ((c = Cgetopt_long (argc, argv, "r", longopts, NULL)) != EOF) {
+                switch (c) {
+                case 'r':
+                        rflag++;
+                        break;
+                case '?':
+                        errflg++;
+                        break;
+                default:
+                        break;
+                }
+        }
+	if(Coptind >= argc-1 && !errflg){
+		errflg++;
+	}
+        if (errflg) {
+                fprintf (stderr,
+                    "usage: %s [-r] [--comment] files/direcories l_directory...\ninfo: get files from the remote station\n",
+                        argv[0]);
+                exit (USERR);
+        }
+	/*for targetpath*/
+	strcpy(targetpath,argv[argc-1]);
+	if(realpath(targetpath, path_buff)==NULL){
+		fprintf(stderr,"%s: no such directory\n",targetpath);
+		exit (USERR);
+	}else{
+		stat(path_buff, &s_buf);
+		if(!S_ISDIR(s_buf.st_mode)){
+			fprintf(stderr,"%s:targetpath must be a directory\n",path_buff);
+			exit (USERR);	
+		}	
+	}
+	/*for sourcepath*/
+	for(i=Coptind; i<argc-1; i++){	
+		path=argv[i];
+		if(*path!='/'||strlen(path)+1>CA_MAXPATHLEN){
+			fprintf(stderr,"%s: invalid path\n",path);
+			errflg++;
+			continue;
+		}else{
+			strcpy(sourcepath, path);
+		}
+		res=openpath(sourcepath, actual_path, &filesize);
+		if(res==0){//files
+			if(procget(actual_path, filesize, 0, sourcepath, path_buff)){
+				fprintf(stderr,"%s: iget--iread failure %s\n", sourcepath, strerror(errno));
+				errflg++;
+			}
+		}else if(res==EISDIR){//directories
+			if(!rflag){
+				fprintf(stderr,"%s: derictories must be with -r\n", sourcepath);
+				errflg++;
+			}else{
+				if(procdir(sourcepath, path_buff)){
+					errflg++;
+				}
+			}		
+		}else{//fail
+			fprintf(stderr,"%s: invalid path\n",sourcepath);
+			errflg++;
+		}
+	}	
+
+        if (errflg)
+                exit (USERR);
+        exit (0);
+}
+

@@ -85,13 +85,16 @@ int Cns_opendir_t_xrd(const char *path, int * child_dirid)
         if (c == 0) {
                 rbp = repbuf;
 		unmarshall_STRING(rbp, dirid_list);
-		
-		pos=strtok(dirid_list, delims);
-		while(pos!=NULL){
-			int id=atoi(pos);
-			child_dirid[i]=id;
-			i++;
-			pos=strtok(NULL, delims);
+		if(!strcmp("NOFILE", dirid_list)){
+			c=0;	
+		}else{	
+			pos=strtok(dirid_list, delims);
+			while(pos!=NULL){
+				int id=atoi(pos);
+				child_dirid[i]=id;
+				i++;
+				pos=strtok(NULL, delims);
+			}
 		}
 		
         }

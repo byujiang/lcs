@@ -415,6 +415,48 @@ int Cns_get_fmd_by_fullid(struct Cns_dbfd *dbfd,u_signed64 parent_fileid,char *n
 	return (0);
 }
 
+int Cns_get_ftmd_by_fullid(struct Cns_dbfd *dbfd,u_signed64 parent_fileid,char *name,struct Cns_file_metadata *fmd_entry,int lock,Cns_dbrec_addr *rec_addr)
+{
+        char escaped_name[CA_MAXNAMELEN*2+1];
+        char func[22];
+        char parent_fileid_str[21];
+        static char query[] =
+                "SELECT \
+                 FILEID, PARENT_FILEID, NAME, PATH, FILEMODE, NLINK, DEV, INO, OWNER_UID, GID, \
+                 FILESIZE, ATIME, MTIME, CTIME, FILECLASS, STATUS \
+                FROM Cns_file_transform_metadata \
+                WHERE parent_fileid = %s \
+                AND name = '%s'";
+        static char query4upd[] =
+                "SELECT ROWID, \
+                 FILEID, PARENT_FILEID, NAME, PATH, FILEMODE, NLINK, DEV, INO, OWNER_UID, GID, \
+                 FILESIZE, ATIME, MTIME, CTIME, FILECLASS, STATUS \
+                FROM Cns_file_transform_metadata \
+                WHERE parent_fileid = %s \
+                AND name = '%s' \
+                FOR UPDATE";
+        MYSQL_RES *res;
+        MYSQL_ROW row;
+        char sql_stmt[1024];
+
+        strcpy (func, "Cns_get_ftmd_by_fullid");
+        mysql_real_escape_string (&dbfd->mysql, escaped_name, name,
+            strlen (name));
+        sprintf (sql_stmt, lock ? query4upd : query,
+            u64tostr (parent_fileid, parent_fileid_str, 0), escaped_name);
+        if (Cns_exec_query (func, dbfd, sql_stmt, &res))
+                return (-1);
+        if ((row = mysql_fetch_row (res)) == NULL) {
+                mysql_free_result (res);
+                serrno = ENOENT;
+                return (-1);
+        }
+        Cns_decode_ftmd_entry (row, lock, rec_addr, fmd_entry);
+        mysql_free_result (res);
+        return (0);
+}
+
+
 int Cns_get_fmd_by_pfid(struct Cns_dbfd *dbfd,int bod,u_signed64 parent_fileid,struct Cns_file_metadata *fmd_entry,int getattr,int endlist,DBLISTPTR *dblistptr)
 {
 	char func[20];
@@ -1178,16 +1220,16 @@ int Cns_decode_ftmd_entry(MYSQL_ROW row,int lock,Cns_dbrec_addr *rec_addr,struct
 	ftmd_entry->parent_fileid = strtou64(row[i++]);
 	strcpy(ftmd_entry->name, row[i++]);
 	strcpy(ftmd_entry->path, row[i++]);
-	ftmd_entry->filemode = atoi(row[i++]);
-	ftmd_entry->nlink = atoi(row[i++]);
-	ftmd_entry->dev = atoi(row[i++]);
-	ftmd_entry->ino = atoi(row[i++]);
-	ftmd_entry->uid = atoi(row[i++]);
-	ftmd_entry->gid = atoi(row[i++]);
-	ftmd_entry->filesize = atoi(row[i++]);
-	ftmd_entry->atime = atoi(row[i++]);
-	ftmd_entry->mtime = atoi(row[i++]);
-	ftmd_entry->ctime = atoi(row[i++]);
+	ftmd_entry->filemode = atol(row[i++]);
+	ftmd_entry->nlink = atol(row[i++]);
+	ftmd_entry->dev = atol(row[i++]);
+	ftmd_entry->ino = atol(row[i++]);
+	ftmd_entry->uid = atol(row[i++]);
+	ftmd_entry->gid = atol(row[i++]);
+	ftmd_entry->filesize = atol(row[i++]);
+	ftmd_entry->atime = atol(row[i++]);
+	ftmd_entry->mtime = atol(row[i++]);
+	ftmd_entry->ctime = atol(row[i++]);
 	ftmd_entry->fileclass = atoi(row[i++]);
 	ftmd_entry->status = *row[i++];
 //	strcpy(ftmd_entry->bitmap, row[i]);
@@ -1243,7 +1285,7 @@ int Cns_insert_ftmd_entry(struct Cns_dbfd *dbfd,struct Cns_file_metadata *fmd_en
                 (FILEID, PARENT_FILEID, NAME, FILEMODE, NLINK, OWNER_UID, GID, \
                  FILESIZE, ATIME, MTIME, CTIME, FILECLASS, STATUS, DEV, PATH, INO) \
                 VALUES \
-                (%s, %s, '%s', %d, %d, %d, %d, %s, %d, %d, %d, %d, '%c', %d, '%s', %d)";
+                (%s, %s, '%s', %d, %d, %d, %d, %s, %d, %d, %d, %d, '%c', %d, '%s', %ld)";
         char parent_fileid_str[21];
         char sql_stmt[1024];
 
@@ -1277,7 +1319,7 @@ int Cns_unique_transform_id(struct Cns_dbfd *dbfd,u_signed64 *unique_id)
 {
         char func[16];
         static char insert_stmt[] =
-                "INSERT INTO Cns_unique_transform_id (ID) VALUES (3)";
+                "INSERT INTO Cns_unique_transform_id (ID) VALUES (2)";
         static char query_stmt[] =
                 "SELECT ID FROM Cns_unique_transform_id FOR UPDATE";
         MYSQL_RES *res;
@@ -1292,7 +1334,8 @@ int Cns_unique_transform_id(struct Cns_dbfd *dbfd,u_signed64 *unique_id)
         mysql_ping(&dbfd->mysql);
         if (Cns_exec_query (func, dbfd, query_stmt, &res))
                 return (-1);
-        if ((row = mysql_fetch_row (res)) == NULL) {
+	row = mysql_fetch_row (res);
+        if (row == NULL || row[0] == NULL) {
                 mysql_free_result (res);
                 if (mysql_query (&dbfd->mysql, insert_stmt)) {
                         nslogit (func, "INSERT error: %s\n",
@@ -1300,7 +1343,7 @@ int Cns_unique_transform_id(struct Cns_dbfd *dbfd,u_signed64 *unique_id)
                         serrno = SEINTERNAL;
                         return (-1);
                 }
-                *unique_id = 3;
+                *unique_id = 2;
         } else {
                 uniqueid = strtou64 (row[0]) + 1;
                 mysql_free_result (res);
@@ -1329,14 +1372,14 @@ int Cns_get_ftmd_by_pfid(struct Cns_dbfd *dbfd,int bod,u_signed64 parent_fileid,
 		ORDER BY name";
 	static char query_name[] =
 		"SELECT \
-		 NAME \
+		NAME, PATH \
 		FROM Cns_file_transform_metadata \
 		WHERE parent_fileid = %s \
 		ORDER BY name";
 	MYSQL_ROW row;
 	char sql_stmt[1024];
 
-	strcpy (func, "Cns_get_fmd_by_pfid");
+	strcpy (func, "Cns_get_ftmd_by_pfid");
 	if (endlist) {
 		if (*dblistptr)
 			mysql_free_result (*dblistptr);
@@ -1350,8 +1393,10 @@ int Cns_get_ftmd_by_pfid(struct Cns_dbfd *dbfd,int bod,u_signed64 parent_fileid,
 	}
 	if ((row = mysql_fetch_row (*dblistptr)) == NULL)
 		return (1);
-	if (! getattr)
+	if (! getattr){
 		strcpy (fmd_entry->name, row[0]);
+		strcpy (fmd_entry->path, row[1]);
+	}
 	else
 		Cns_decode_ftmd_entry (row, 0, NULL, fmd_entry);
 	return (0);
@@ -1367,7 +1412,7 @@ int Cns_update_ftmd_entry(struct Cns_dbfd *dbfd,Cns_dbrec_addr *rec_addr,struct 
         char sql_stmt[1024];
         static char update_stmt[] =
                 "UPDATE Cns_file_transform_metadata SET \
-                 FILEMODE = %d, NLINK = %d, DEV = %d, INO = %d,\
+                 FILEMODE = %d, NLINK = %d, DEV = %d, INO = %ld,\
                 OWNER_UID = %d, GID = %d, FILESIZE = %s, ATIME = %d, \
                 MTIME = %d, CTIME = %d, FILECLASS = %d, STATUS = '%c' \
                 WHERE FILEID = %d";
@@ -1390,7 +1435,7 @@ int Cns_update_ftmd_entry(struct Cns_dbfd *dbfd,Cns_dbrec_addr *rec_addr,struct 
         }
         return (0);
 }
-int Cns_get_t_filemeta(struct Cns_dbfd *dbfd,char *path,char *basename,int *fd,int *filesize,int *mode)
+int Cns_get_t_filemeta(struct Cns_dbfd *dbfd,char *path,char *basename,int *fd,size_t *filesize,int *mode)
 {
 	char func[22];
 	static char query[] =
@@ -1420,6 +1465,7 @@ int Cns_get_t_filemeta(struct Cns_dbfd *dbfd,char *path,char *basename,int *fd,i
                 nslogit (func, "mysql_store_res error: %s\n",
                 mysql_error (&dbfd->mysql));
                 serrno = SEINTERNAL;
+		mysql_free_result (res);
                 return -1;
         }
 
@@ -1430,7 +1476,7 @@ int Cns_get_t_filemeta(struct Cns_dbfd *dbfd,char *path,char *basename,int *fd,i
 		return (-1);
 	}
 	sscanf(row[0],"%d",fd);
-	sscanf(row[1],"%d",filesize);
+	sscanf(row[1],"%ld",filesize);
 	sscanf(row[2],"%d",mode);
 	mysql_free_result (res);
 	return (0);
@@ -1460,6 +1506,7 @@ int Cns_get_t_filepath(struct Cns_dbfd *dbfd,int fd,char *actual_path)
 		nslogit (func, "mysql_store_res error: %s\n",
 		mysql_error (&dbfd->mysql));
 		serrno = SEINTERNAL;
+		mysql_free_result (res);
 		return -1;
 	}
 	if ((row = mysql_fetch_row (res)) == NULL) {
@@ -1469,16 +1516,16 @@ int Cns_get_t_filepath(struct Cns_dbfd *dbfd,int fd,char *actual_path)
         mysql_free_result (res);
 	return 0;
 }
-int Cns_set_t_segmeta(struct Cns_dbfd *dbfd,char *path,char *basename,int fd,int size,char *physic_path)
+int Cns_set_t_segmeta(struct Cns_dbfd *dbfd,char *path,char *basename,int fd, size_t size,char *physic_path)
 {
 	char func[21];
 	static char insert_stmt[]=
 		"INSERT INTO Cns_seg_transform_metadata\
 		(FD, seg_size, path)\
 		VALUES\
-		( %d, %d, '%s')";
+		( %d, %ld, '%s')";
 	char sql_stmt[1024];
-	strcpy(func,"Cns_set_segmetadata");
+	strcpy(func,"Cns_set_t_segmetadata");
 	sprintf(sql_stmt,insert_stmt,fd,size,physic_path);
 	if(mysql_ping(&dbfd->mysql)!=0){
 		printf("sql_connect down\n ");
@@ -1495,16 +1542,17 @@ int Cns_set_t_segmeta(struct Cns_dbfd *dbfd,char *path,char *basename,int fd,int
 	}
 	return (0);
 }
+
 int Cns_set_t_filebitmap(struct Cns_dbfd *dbfd,char *path,char *basename,char* bitmap)
 {
         char func[21];
-        static char insert_stmt[]=
+        static char update_stmt[]=
                 "UPDATE Cns_file_transform_metadata\
                 SET bitmap='%s'\
                 WHERE path='%s' AND name='%s'";
-        char sql_stmt[1024];
-        strcpy(func,"Cns_set_segmetadata");
-        sprintf(sql_stmt,insert_stmt,bitmap,path,basename);
+        char sql_stmt[strlen(update_stmt)+strlen(bitmap)+strlen(path)+strlen(basename)+1];
+        strcpy(func,"Cns_set_t_filebitmap");
+        sprintf(sql_stmt,update_stmt,bitmap,path,basename);
         if(mysql_ping(&dbfd->mysql)!=0){
                 printf("sql_connect down\n ");
         }
@@ -1512,14 +1560,14 @@ int Cns_set_t_filebitmap(struct Cns_dbfd *dbfd,char *path,char *basename,char* b
                 if (mysql_errno (&dbfd->mysql) == ER_DUP_ENTRY)
                         serrno = EEXIST;
                 else {
-                        nslogit (func, "INSERT error: %s\n",
+                        nslogit (func, "UPDATE error: %s\n",
                             mysql_error (&dbfd->mysql));
                         serrno = SEINTERNAL;
                 }
+		free(sql_stmt);
                 return (-1);
         }
         return (0);
-
 }
 
 int Cns_get_bitmap(struct Cns_dbfd *dbfd,char *path,char *basename,char *bitmap)
@@ -1528,20 +1576,23 @@ int Cns_get_bitmap(struct Cns_dbfd *dbfd,char *path,char *basename,char *bitmap)
         MYSQL_RES *res;
 	char func[21];
         static char check[]="select bitmap from Cns_file_transform_metadata where path='%s' and name='%s'";
-        char sql_check[1024];
+        char sql_stmt[1024];
 
         strcpy(func,"Cns_get_bitmap");
-        sprintf(sql_check,check,path,basename);
-        if (Cns_exec_query (func, dbfd, sql_check, &res))
+        sprintf(sql_stmt,check,path,basename);
+	if (Cns_exec_query (func, dbfd, sql_stmt, &res))
                 return (-1);
-
         if ((row = mysql_fetch_row (res)) == NULL) {
                 mysql_free_result (res);
                 serrno = ENOENT;
                 return (-1);
         }
-	strcpy(bitmap,row[0]);
-        mysql_free_result (res);
+	if(row[0] == NULL){
+                mysql_free_result (res);
+                return 1;
+        }
+	strcpy(bitmap, row[0]);
+	mysql_free_result (res);	 
         return (0);		
 }
  
@@ -1557,8 +1608,8 @@ int Cns_get_fd_by_actualpath(struct Cns_dbfd *dbfd, char *path, int *fd)
         sprintf(sql_check,check,path);
         if (Cns_exec_query (func, dbfd, sql_check, &res))
                 return (-1);
-
-        if ((row = mysql_fetch_row (res)) == NULL) {
+	row = mysql_fetch_row (res);
+        if (row == NULL || row[0]==NULL) {
                 mysql_free_result (res);
                 serrno = ENOENT;
                 return (-1);
@@ -1627,8 +1678,8 @@ int Cns_get_dirlist_by_parent_fileid(struct Cns_dbfd *dbfd, int id, char *dirlis
 		return -1;
 	if ((row = mysql_fetch_row (res)) == NULL) {
 		mysql_free_result (res);
-		serrno = ENOENT;
-		return -1;
+		sprintf(dirlist, "NOFILE");
+		return 0;
 	}
 	sprintf(dirlist,row[0]);
 	while(row = mysql_fetch_row (res)){
@@ -1664,3 +1715,40 @@ int Cns_get_ftmd_by_fileid(struct Cns_dbfd *dbfd, int id, struct Cns_file_metada
         mysql_free_result (res);
 	return 0;
 }
+int Cns_delete_ftmd_entry_byfid(struct Cns_dbfd *dbfd, int id)
+{
+        static char delete_stmt[] =
+                "DELETE FROM Cns_file_transform_metadata WHERE FILEID = %d";
+        char func[21];
+        char sql_stmt[70];
+        strcpy (func, "Cns_delete_ftmd_entry_byfid");
+        sprintf (sql_stmt, delete_stmt, id);
+        mysql_ping(&dbfd->mysql);
+        if (mysql_query (&dbfd->mysql, sql_stmt)) {
+                nslogit (func, "DELETE error: %s\n",
+                    mysql_error (&dbfd->mysql));
+                serrno = SEINTERNAL;
+                return (-1);
+        }
+        return (0);
+
+}
+int Cns_delete_stmd_entry_byfid(struct Cns_dbfd *dbfd, int id)
+{
+        static char delete_stmt[] =
+                "DELETE FROM Cns_seg_transform_metadata WHERE FD = %d";
+        char func[21];
+        char sql_stmt[70];
+        strcpy (func, "Cns_delete_stmd_entry_byfid");
+        sprintf (sql_stmt, delete_stmt, id);
+        mysql_ping(&dbfd->mysql);
+        if (mysql_query (&dbfd->mysql, sql_stmt)) {
+                nslogit (func, "DELETE error: %s\n",
+                    mysql_error (&dbfd->mysql));
+                serrno = SEINTERNAL;
+                return (-1);
+        }
+        return (0);
+
+}
+

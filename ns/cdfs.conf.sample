@@ -1,0 +1,10 @@
+[System Configure]
+---CNS_HOST=vm083132.v.ihep.ac.cn
+PY_MODULE_PATH=/home/xuq/cdfs/lcs/ns
+DATA_SERVER_IP=vm083148.v.ihep.ac.cn
+DATA_SERVER_CONSOL=28001
+DATA_DIR=/root/test2 /root/test  /root/pytoc
+MOUNT_TAG=0
+MOUNT_DIR=/data/xrootdfs/
+BLOCK_DIR=/cdfs_data/
+

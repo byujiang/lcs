@@ -65,7 +65,7 @@ Cns_get_Data_daemon(const char *path, struct Cns_filestat *filentry)
 	unmarshall_HYPER (rbp, filentry->fileid);
 	unmarshall_LONG (rbp, filentry->uid);
         unmarshall_LONG (rbp, filentry->gid);
-        unmarshall_LONG (rbp, filentry->ino);
+        unmarshall_HYPER (rbp, filentry->ino);
         unmarshall_TIME_T (rbp, filentry->mtime);
         unmarshall_TIME_T (rbp, filentry->ctime);
         unmarshall_TIME_T (rbp, filentry->atime);

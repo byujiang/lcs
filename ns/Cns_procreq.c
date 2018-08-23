@@ -1,4 +1,5 @@
-/*
+
+	/*
  * Copyright (C) 1999-2004 by CERN/IT/PDP/DM
  * All rights reserved
  */
@@ -15,10 +16,15 @@ static char sccsid[] = "@(#)Cns_procreq.c,v 1.61 2004/03/03 08:51:31 CERN IT-PDP
 #include <time.h>
 #include <sys/types.h>
 #include <uuid/uuid.h>
-#include <python3.5m/Python.h>
+#ifdef PY36
+	#include <python3.6m//Python.h>
+#else
+	#include <python3.5m//Python.h>
+#endif
 #include <fcntl.h>
 #include <time.h>
 #include <pthread.h>
+#include <queue>
 
 #if defined(_WIN32)
 #define R_OK 4
@@ -37,6 +43,11 @@ static char sccsid[] = "@(#)Cns_procreq.c,v 1.61 2004/03/03 08:51:31 CERN IT-PDP
 #define UNIT_SIZE (1024*1024)
 #define PATH "/cdfs_data/"
 #define VIRPATH "/data/xrootdfs/file/"
+#define THREAD_NUM 10
+#define SMALLSIZE 10485760
+#define BUFLEN 10485760 //1MB
+#define SMALLSIZE 10485760 //10MB 
+
 
 #include "marshall.h"
 #include "Cgrp.h"
@@ -50,6 +61,19 @@ static char sccsid[] = "@(#)Cns_procreq.c,v 1.61 2004/03/03 08:51:31 CERN IT-PDP
 #include "Cns_api.h"
 extern int being_shutdown;
 extern char localhost[CA_MAXHOSTNAMELEN+1];
+
+pthread_mutex_t  size_lock;
+extern int stopflag = 0;
+u_signed64 total_bytes = 0;
+
+struct mProcArg
+{
+        unsigned long long fd_in;
+        unsigned long long fd_out;
+        size_t size;
+        off_t offset;
+};
+
 
 struct transread_argument
 {
@@ -3694,119 +3718,6 @@ int Cns_srv_getactualpath(int magic,char *req_data,char *clienthost,struct Cns_s
 	sendrep (thip->s, MSG_DATA, sbp - repbuf, repbuf);
 	return (0);
 }
-/*	Cns_srv_setfile_transform_metadata - add/replace a file_transform_metadata  associated with a file/directory */
-
-int Cns_srv_setfile_transform_metadata(int magic,char *req_data,char *clienthost,struct Cns_srv_thread_info *thip)
-{
-	int c;
-	DBLISTPTR dblistptr;
-	Cns_dbrec_addr rec_addr;	/* file record address */
-	Cns_dbrec_addr rec_addrp;	/* parent record address */
-	Cns_dbrec_addr rec_addrs;	/* segment record address */ 
-	char basename[CA_MAXNAMELEN+1];
-	u_signed64 cwd;
-	struct Cns_seg_metadata smd_entry;
-	struct Cns_file_metadata filentry;
-	struct Cns_file_metadata filentry_old;
-	char func[19];
-	char logbuf[CA_MAXPATHLEN+12];
-	struct Cns_file_metadata parent_dir;
-	char path[CA_MAXPATHLEN+1];
-	char *rbp;
-	char *sbp;
-	char tmpbuf[21];
-	char repbuf[8];
-	int bof=1;
-	Cns_dbrec_addr rec_addru;
-	strcpy (func, "Cns_srv_setfile_transform_metadata");
-	rbp = req_data;
-	unmarshall_LONG (rbp, filentry.uid);
-        unmarshall_LONG (rbp, filentry.gid);
-        unmarshall_LONG (rbp, filentry.ino);
-        unmarshall_LONG (rbp, filentry.mtime);
-        unmarshall_LONG (rbp, filentry.ctime);
-        unmarshall_LONG (rbp, filentry.atime);
-        unmarshall_LONG (rbp, filentry.nlink);
-        unmarshall_LONG (rbp, filentry.dev);
-        unmarshall_STRING (rbp, filentry.path);
-        unmarshall_LONG (rbp, filentry.filesize);
-        unmarshall_LONG (rbp, filentry.filemode);
-	unmarshall_HYPER (rbp, cwd);
-        unmarshall_STRING (rbp, filentry.name);
-	nslogit (func, NS092, "Cns_srv_setfile_transform_metadata", filentry.uid, filentry.gid, clienthost);
-	
-	sprintf (logbuf, "set_file_transform_metadata %s", filentry.path);
-	Cns_logreq (func, logbuf);
-
-//	start transform
-	(void) Cns_start_tr (thip->s, &thip->dbfd);
-	if (Cns_splitname (cwd, filentry.path, basename))
-		return (serrno);
-//      get parent_Dir
-       strcpy(parent_dir.path, filentry.path);
-       if (Cns_splitname (cwd, parent_dir.path, parent_dir.name))   
-                                   return (serrno);
-        c = Cns_get_ftmd_by_fullpath (&thip->dbfd, parent_dir.path, parent_dir.name, &parent_dir, 0, &rec_addr);
-	if (c  && serrno != ENOENT)         
-                               return (serrno);
-	if(c==0){
-		printf("parent_dir exits\n");
-	}else{
-		parent_dir.fileclass=0;
-		if(Cns_unique_transform_id(&thip->dbfd, &parent_dir.fileid)<0)
-                        return (serrno);
-	}	
-/* check if the file exists already */
-	c = Cns_get_ftmd_by_fullpath (&thip->dbfd, filentry.path, filentry.name, &filentry_old, 0, &rec_addr);
-	if (c && serrno != ENOENT)
-		return (serrno);
-	if(c==0){/*update old metadata*/
-		
-		/*
-		if(filentry.filemode&S_IFDIR)
-			return (EISDIR);
-		//check write permission in name entry
-		if(Cns_chkentryperm(&filentry, S_IWRITE, filentry.uid, filentry.gid, clienthost))
-			return (EACCES);
-		
-		//delete file segments if any
-		while ((c = Cns_get_smd_by_pfid (&thip->dbfd, bof, filentry.fileid,
-		    &smd_entry, 1, &rec_addrs, 0, &dblistptr)) == 0) {
-			if (Cns_delete_smd_entry (&thip->dbfd, &rec_addrs))
-				return (serrno);
-			bof = 0;
-		}
-		(void) Cns_get_smd_by_pfid (&thip->dbfd, bof, filentry.fileid,
-		    &smd_entry, 1, &rec_addrs, 1, &dblistptr);	//ree res 
-		if (c < 0)
-			return (serrno);
-		*/
-		//update basename entry
-		filentry.fileid=filentry_old.fileid;
-		filentry.parent_fileid=filentry_old.parent_fileid;
-		filentry.fileclass=filentry_old.fileclass;
-		filentry.status='-';
-		if(Cns_update_ftmd_entry(&thip->dbfd, &rec_addr,&filentry))
-			return (serrno);
-
-		nslogit (func, "file %s exist\n",  (filentry.name, tmpbuf, 0));
-	}else{ /*must insert the metadata*/
-		if(Cns_unique_transform_id(&thip->dbfd, &filentry.fileid)<0)
-			return (serrno);
-		filentry.parent_fileid=parent_dir.fileid;
-		filentry.fileclass=parent_dir.fileclass;
-		filentry.status='-';
-		/*write new file entry*/
-		if(Cns_insert_ftmd_entry(&thip->dbfd, &filentry))
-			return (serrno);
-		memset ((char *) &filentry, 0, sizeof(filentry));
-		nslogit (func, "file %s created\n", u64tostr (filentry.fileid, tmpbuf, 0));	
-	}
-	sbp=repbuf;
-	marshall_HYPER(sbp, filentry.fileid);
-	sendrep(thip->s, MSG_DATA, sbp-repbuf, repbuf);
-	return (0);
-}
 
 int Cns_srv_get_Data_daemon (int magic,char *req_data,char *clienthost,struct Cns_srv_thread_info *thip)
 {
@@ -3842,7 +3753,7 @@ int Cns_srv_get_Data_daemon (int magic,char *req_data,char *clienthost,struct Cn
 	marshall_HYPER(sbp, filentry.fileid);
 	marshall_LONG (sbp, filentry.uid);
         marshall_LONG (sbp, filentry.gid);
-        marshall_LONG (sbp, filentry.ino);
+        marshall_HYPER (sbp, filentry.ino);
         marshall_TIME_T (sbp, filentry.mtime);
         marshall_TIME_T (sbp, filentry.ctime);
         marshall_TIME_T (sbp, filentry.atime);
@@ -3999,11 +3910,23 @@ int Cns_srv_readdir_t(int magic,char *req_data,char *clienthost,struct Cns_srv_t
 		fnl = strlen (fmd_entry->name);
 		if (getattr == 0) {		/* readdir */
 			if (fnl > maxsize) break;
-			marshall_STRING (sbp, fmd_entry->name);
+			if(dir_fileid==1){
+				char *tmp=(char *)malloc(strlen(fmd_entry->name)+strlen(fmd_entry->path)+1);
+				sprintf(tmp, "%s/%s", fmd_entry->path, fmd_entry->name);
+				marshall_STRING (sbp, tmp);
+				free(tmp);
+			}else
+				marshall_STRING (sbp, fmd_entry->name);
 			nbentries++;
 			maxsize -= ((direntsz + fnl + 8) / 8) * 8;
 		} else if (getattr == 1) {	/* readdirx */
 			if (fnl > maxsize) break;
+			if(dir_fileid==1){
+                                char *tmp=(char *)malloc(strlen(fmd_entry->name)+strlen(fmd_entry->path)+1);
+                                sprintf(tmp, "%s/%s", fmd_entry->path, fmd_entry->name);
+                                strcpy(fmd_entry->name, tmp);
+                                free(tmp);
+			}
 			marshall_DIRX (&sbp, fmd_entry);
 			nbentries++;
 			maxsize -= ((direntsz + fnl + 8) / 8) * 8;
@@ -4091,7 +4014,7 @@ int Cns_srv_cat (int magic,char *req_data,char *clienthost,struct Cns_srv_thread
 	uid_t uid;
 	char *actual_path=(char *)malloc(CA_MAXPATHLEN+1);
 	int fd;
-	int segsize;
+	size_t segsize;
 	int mode;
 	strcpy (func, "Cns_srv_cat");
 	rbp = req_data;
@@ -4116,7 +4039,7 @@ int Cns_srv_cat (int magic,char *req_data,char *clienthost,struct Cns_srv_thread
 	sbp = repbuf;
 	marshall_STRING (sbp, actual_path);
 	marshall_LONG(sbp, fd);
-	marshall_LONG(sbp, segsize);
+	marshall_HYPER(sbp, segsize);
 	marshall_LONG(sbp, mode);
 	sendrep (thip->s, MSG_DATA, sbp - repbuf, repbuf);
 	free(actual_path);
@@ -4136,7 +4059,7 @@ int Cns_srv_setseg (int magic,char *req_data,char *clienthost,struct Cns_srv_thr
 	Cns_dbrec_addr rec_addru;
 	uid_t uid;
 	int fd;
-	int size;
+	size_t size;
 	int bitmap_num;
 	strcpy (func, "Cns_srv_setseg");
 	rbp = req_data;
@@ -4147,22 +4070,19 @@ int Cns_srv_setseg (int magic,char *req_data,char *clienthost,struct Cns_srv_thr
         if (unmarshall_STRINGN (rbp, path, CA_MAXPATHLEN+1))
                 return (SENAMETOOLONG);
 	unmarshall_LONG (rbp, fd);
-	unmarshall_LONG (rbp, size);
+	unmarshall_HYPER (rbp, size);
 	if (unmarshall_STRINGN (rbp, physic_path, CA_MAXPATHLEN+1))
 		return (SENAMETOOLONG);
 	unmarshall_LONG (rbp, bitmap_num);
 	sprintf (logbuf, "setseg %s", path);
         if (Cns_splitname (cwd, path, basename))
                 return (serrno);
-
-	char * bitmap=(char *)malloc((bitmap_num+1)*sizeof(char));
-        memset(bitmap,'0',bitmap_num*sizeof(char));
-
+	char *bitmap=(char *)malloc(bitmap_num+1);
+	memset(bitmap, '0', bitmap_num);
+	bitmap[bitmap_num]='\0';
 	Cns_logreq (func, logbuf);
-
 	Cns_set_t_segmeta(&thip->dbfd, path, basename, fd, size, physic_path);
 	Cns_set_t_filebitmap(&thip->dbfd, path, basename,bitmap);
-	free(bitmap);
 	return (0);
 }
 /*
@@ -4187,7 +4107,7 @@ void *thread_download(void *arg)
 }
 */
 
-void transread(const char *host,const char *filepath,const char *targetdir,const char *uid,const char *gid,int position,int size, char *py_module_path)
+void transread(const char *host,const char *filepath,const char *targetdir,const char *uid,const char *gid, off_t position,size_t size, char *py_module_path, char *tmp, size_t chunk_size, int buff_tag)
 {
         char func[20];
         strcpy(func, "transread");
@@ -4199,17 +4119,15 @@ void transread(const char *host,const char *filepath,const char *targetdir,const
 	}
 	Py_BEGIN_ALLOW_THREADS  
 	Py_BLOCK_THREADS
-/*
+
 	PyObject * pModule = NULL;
-        PyRun_SimpleString("import sys");
-        PyRun_SimpleString("import os");
-        PyRun_SimpleString("import string");
+        PyRun_SimpleString("import sys, os, string");
 	char do_append[128];
 	strcpy(do_append, "sys.path.append('");
 	strcat(do_append, py_module_path);
 	strcat(do_append, "')");
         PyRun_SimpleString(do_append);
-        pModule = PyImport_ImportModule("client");
+        pModule = PyImport_ImportModule("runclient");
         if(pModule == NULL)
         {
                 nslogit(func, "client model load failed\n");
@@ -4222,29 +4140,37 @@ void transread(const char *host,const char *filepath,const char *targetdir,const
 	PyTuple_SetItem(pArgs,2,Py_BuildValue("s",targetdir));
 	PyTuple_SetItem(pArgs,3,Py_BuildValue("s",uid));
 	PyTuple_SetItem(pArgs,4,Py_BuildValue("s",gid));
-	PyTuple_SetItem(pArgs,5,Py_BuildValue("i",position));
-	PyTuple_SetItem(pArgs,6,Py_BuildValue("i",size));
-	pFunc = PyObject_GetAttrString(pModule,"process_read");
+	PyTuple_SetItem(pArgs,5,Py_BuildValue("l",position));
+	PyTuple_SetItem(pArgs,6,Py_BuildValue("l",size));
+	pFunc = PyObject_GetAttrString(pModule,"readentrance");
 	if(pFunc == NULL)
 	{
 		nslogit(func, "client function parameter post failed\n");
 	}
 	result = PyEval_CallObject(pFunc,pArgs);
-	Py_DECREF(pArgs);
 	if(result == NULL){
 		nslogit(func, "client function call failed\n");
+	}else{
+		int t=0;
+		char *chunk;
+		/*
+		PyArg_ParseTuple(result, "is",&t,&chunk);
+		if(buff_tag==1)
+			strncpy(tmp, chunk, chunk_size);
+		*/	
 	}
+	Py_DECREF(pArgs);
 	Py_DECREF(result);
 	Py_DECREF(pFunc);
 	Py_DECREF(pModule);
-*/
+/*
         PyRun_SimpleString("import subprocess");
 	char cmd[]="/usr/local/bin/python3";
 	char script[]="/home/xuq/lcs/ns/runclient.py";
-	char tmp[256];
+	char tmp[256];        
 	sprintf(tmp, "subprocess.Popen(['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d'])", cmd, script, host, filepath, targetdir, uid, gid, position, size);
 	PyRun_SimpleString(tmp);
-	
+*/	
 	Py_UNBLOCK_THREADS
 	Py_END_ALLOW_THREADS	
 	if(!nHold){
@@ -4266,12 +4192,13 @@ int Cns_srv_download_seg(int magic,char *req_data,char *clienthost,struct Cns_sr
         char filepath[CA_MAXPATHLEN+1];
 	char basename[CA_MAXNAMELEN+1];
         char location[CA_MAXNAMELEN+1];
+	char uid_c[16];
+	char gid_c[16];
 	off_t offset;
 	size_t size;
-	int filesize;
+	size_t filesize;
 	int buff_tag;
 	char *repbuf=(char *)malloc(1024*1024+10);
-
         strcpy (func, "Cns_srv_download_seg");
         rbp = req_data;
         unmarshall_LONG (rbp, uid);
@@ -4281,38 +4208,44 @@ int Cns_srv_download_seg(int magic,char *req_data,char *clienthost,struct Cns_sr
         if (unmarshall_STRINGN (rbp, filepath, CA_MAXPATHLEN+1))
                 return (SENAMETOOLONG);
 
-	unmarshall_LONG(rbp, offset);
-        unmarshall_LONG(rbp, size);
+	unmarshall_HYPER(rbp, offset);
+        unmarshall_HYPER(rbp, size);
         unmarshall_STRING(rbp, location);
-        unmarshall_LONG(rbp, filesize);
+        unmarshall_HYPER(rbp, filesize);
 	unmarshall_LONG(rbp, buff_tag);
 
         sprintf (logbuf, "Cns_srv_download_seg %s", filepath);
         Cns_logreq (func, logbuf);
-	char *buff=(char *)malloc(size);
+	sprintf(uid_c, "%d", uid);
+	sprintf(gid_c, "%d", gid);
+	char *buff=(char *)malloc(UNIT_SIZE+1);
+	buff[0]='\0';
 	char *file_tmp=(char *)malloc(strlen(filepath)+1);
 	strcpy(file_tmp, filepath);
 	if (Cns_splitname (cwd, file_tmp, basename))
                 return (serrno);
-
         int bitmap_num=filesize/UNIT_SIZE;
         if(filesize%UNIT_SIZE!=0)
                 bitmap_num+=1;
-        char *bitmap=(char *)malloc((bitmap_num+1)*sizeof(char));
+        char *bitmap=(char *)malloc(bitmap_num+1);
+	memset(bitmap, '\0', bitmap_num+1);
+	int bit_res;
         /* start transaction */
-        if(Cns_get_bitmap(&thip->dbfd, file_tmp, basename, bitmap))
+        if((bit_res=Cns_get_bitmap(&thip->dbfd, file_tmp, basename, bitmap)))
 		return(serrno);
         if(bitmap==NULL){
                 return -1;
         }
-        int sblock_num=0;
-        int eblock_num=0;
+
+	/*sblock_num e_block_num for 1M data block*/
+        off_t sblock_num=0;
+        off_t eblock_num=0;
         sblock_num=offset/UNIT_SIZE;//the num of the first data blcok
 	if(sblock_num>=bitmap_num){
 		nslogit(func,"file offset is more than filesize\n");
 		return 1;
 	} 
-        eblock_num=(offset+size)/UNIT_SIZE;
+        eblock_num=(offset+size)/UNIT_SIZE;//the num of the last data block
         if((offset+size)%UNIT_SIZE!=0)
                 eblock_num+=1;
 	if(eblock_num==sblock_num){
@@ -4323,112 +4256,57 @@ int Cns_srv_download_seg(int magic,char *req_data,char *clienthost,struct Cns_sr
 		eblock_num=bitmap_num;
 	}
         int size_num=0;
-        int transform_start;
-	int transform_end;
-/*zhendui yonghu yici qingqiukuai daxiao buqueding 
-        transform_start=sblock_num;
-        for(i=sblock_num;i<eblock_num;i++){
-
-        	if(bitmap[i]=='0'){
-               		size_num+=1;
-        	}else{
-        		if(size_num!=0){
-
-				pid_t chpid=fork();
-				if(chpid==0){
-                        		transread("202.122.37.90:28001",filepath,location,"0","0",transform_start*UNIT_SIZE,size_num*UNIT_SIZE);
-                        		exit(0);
-				}
-				wait();
-
-
-				pthread_t thread1;
-				struct transread_argument arg1;
-				void *thread1_return;
-				int wait_thread_end;
-				strcpy(arg1.remote_path, filepath);
-				strcpy(arg1.local_path, location);
-				arg1.start_location=transform_start;
-				arg1.nums=size_num;
-				arg1.blocksize=UNIT_SIZE;
-				pthread_create(&thread1,NULL,thread_download,(void*)&arg1);
-				wait_thread_end=pthread_join(thread1,&thread1_return);
-				if(wait_thread_end!=0){
-					return 1;
-				}
-
-				struct timeval start,end;
-				float et;
-				char msg[1024];
-				gettimeofday(&start,0);
-				sprintf(msg, "start time: %d.%d\n", start.tv_sec, start.tv_usec);
-				nslogit(func, "begin download %s\n", msg);
-				transread("202.122.37.90:28001",filepath,location,"0","0",transform_start*UNIT_SIZE,size_num*UNIT_SIZE); 
-				gettimeofday(&end,0);
-				et=end.tv_sec*1000+end.tv_usec/1000-start.tv_sec*1000-start.tv_usec/1000;
-				sprintf(msg, "end time: %d.%d used time %.2f(ms)\n", end.tv_sec, end.tv_usec, et);
-				 nslogit(func, "end download %s\n", msg);
-				for(int g=transform_start;g<transform_start+size_num;g++)
-                                        bitmap[g]='2';
-		         	size_num=0;
-				
-                	}
-                	transform_start=i+1;
-       		}
-        }
-	//IP, source file, target file, uid, gid ,offset, size
-        if(size_num!=0){
-
-		pid_t chpid=fork();
-		if(chpid==0){
-                	transread("202.122.37.90:28001",filepath,location,"0","0",transform_start*UNIT_SIZE,size_num*UNIT_SIZE);
-			exit(0);
-		}
-		wait();
-
-
-                pthread_t thread1;
-                struct transread_argument arg1;
-                void *thread1_return;
-                int wait_thread_end;
-                strcpy(arg1.remote_path, filepath);
-                strcpy(arg1.local_path, location);
-                arg1.start_location=transform_start;
-                arg1.nums=size_num;
-                arg1.blocksize=UNIT_SIZE;
-                pthread_create(&thread1,NULL,thread_download,(void*)&arg1);
-                wait_thread_end=pthread_join(thread1,&thread1_return);
-                if(wait_thread_end!=0){
-                      return 1;
-                }
-
-                struct timeval start,end;
-                float et;
-                char msg[1024];
-                gettimeofday(&start,0);
-                sprintf(msg, "start time: %d.%d\n", start.tv_sec, start.tv_usec);
-                nslogit(func, "begin download %s\n", msg);
-		transread("202.122.37.90:28001",filepath,location,"0","0",transform_start*UNIT_SIZE,size_num*UNIT_SIZE);
-                gettimeofday(&end,0);
-                et=end.tv_sec*1000+end.tv_usec/1000-start.tv_sec*1000-start.tv_usec/1000;
-                sprintf(msg, "end time: %d.%d used time %.2f(ms)\n", end.tv_sec, end.tv_usec, et);
-                nslogit(func, "end download %s\n", msg);
-
-		for(int g=transform_start;g<transform_start+size_num;g++)
-                        bitmap[g]='2';
-	}
-*/
+        off_t transform_start;
+	off_t transform_end;
 	transform_start=(sblock_num/10)*10;
 	transform_end=(eblock_num/10)*10;
 	if(eblock_num%10!=0){
 		transform_end=transform_end+10;
 	}
-
 	int p_res=-1;
-	for(int t=transform_start;t<transform_end;t=t+10)	
+
+	/*whole file*/
+	if(filesize==size){
+		int tran_flag=0;
+		off_t tran_s=0;
+		for(off_t t=transform_start; t<transform_end; t=t+10){
+			if(bitmap[t]=='0'){
+				if(tran_flag==0){
+					tran_s=t;
+					tran_flag=1;
+				}else
+					continue;
+			}else if(bitmap[t]=='1'||bitmap[t]=='2'){
+				if(tran_flag==1){
+					transread("202.122.37.90:28001",filepath,location,uid_c,gid_c ,tran_s ,(t-tran_s)*UNIT_SIZE, py_module_path, buff, UNIT_SIZE, buff_tag);
+					for(int i=tran_s; i<t; i++)
+						bitmap[i]='2';
+					tran_flag=0;
+					p_res=0;
+				}else
+					continue;
+			}else{
+	                        nslogit(func, "data_seg bitmap is wrong\n", NULL);
+     	        	        p_res=-2;
+        	                break;
+			}
+
+		}
+		if(tran_flag==1){
+			transread("202.122.37.90:28001",filepath,location,uid_c,gid_c ,tran_s ,(eblock_num-tran_s)*UNIT_SIZE, py_module_path, buff, UNIT_SIZE, buff_tag);
+			for(int i=tran_s; i<eblock_num; i++){
+				bitmap[i]='2';
+			}
+			tran_flag=0;
+			p_res=0;
+		}
+	}else{
+
+	/*data block -> 10M*/
+	for(off_t t=transform_start;t<transform_end;t=t+10)	
 	{
 		if(bitmap[t]=='0'){
-			int transize=0;
+			size_t transize=0;
 			if(t+10<=bitmap_num){	
 				transize=10;
 			}else{
@@ -4441,8 +4319,9 @@ int Cns_srv_download_seg(int magic,char *req_data,char *clienthost,struct Cns_sr
                         gettimeofday(&start,0);
                         sprintf(msg, "start time: %d.%d\n", start.tv_sec, start.tv_usec);
                         nslogit(func, "begin download %s\n", msg);
-
-			transread("202.122.37.90:28001",filepath,location,"0","0",t*UNIT_SIZE,transize*UNIT_SIZE, py_module_path);
+			off_t of=t*UNIT_SIZE;
+			nslogit(func, "----------offset:   %ld\n", of);
+			transread("202.122.37.90:28001",filepath,location,uid_c,gid_c ,of ,transize*UNIT_SIZE, py_module_path, buff, UNIT_SIZE, buff_tag);
 
 	                gettimeofday(&end,0);
 	                et=end.tv_sec*1000+end.tv_usec/1000-start.tv_sec*1000-start.tv_usec/1000;
@@ -4464,6 +4343,8 @@ int Cns_srv_download_seg(int magic,char *req_data,char *clienthost,struct Cns_sr
 		}
 		
 	}
+	}
+	/*return data block*/
 	if(p_res==0){
 		res=Cns_set_t_filebitmap(&thip->dbfd, file_tmp, basename, bitmap);
 	}else if(p_res==-2){
@@ -4473,22 +4354,21 @@ int Cns_srv_download_seg(int magic,char *req_data,char *clienthost,struct Cns_sr
 	}
 	sbp=repbuf;
 	if(res==0 && buff_tag==1 && size<=(1024*1024)){
-		int fd=open(location, O_RDONLY);
-		int r=-1;
-		if(fd==-1){
-			res=1;
-		}else{
-			r=pread(fd, buff, size, offset);
-		}
-		close(fd);
-		int tt=strlen(buff);
-		if(r!=-1){
+		if(*buff!='\0'){
 			marshall_LONG(sbp, 0);
 			marshall_STRING(sbp, buff);
 		}else{
-			marshall_LONG(sbp, 1);
-			marshall_STRING(sbp, "Fail");
-			res=1;
+			int fd=open(location, O_RDONLY);
+			if(fd==-1){
+				marshall_LONG(sbp, 1);
+				marshall_STRING(sbp, "Fail");
+				res=1;
+			}else{
+				pread(fd, buff, size, offset);
+				close(fd);
+				marshall_LONG(sbp, 0);
+				marshall_STRING(sbp, buff);
+			}
 		}
 	}else if(res==1 && buff_tag==1){
 		marshall_LONG(sbp, res);
@@ -4496,11 +4376,11 @@ int Cns_srv_download_seg(int magic,char *req_data,char *clienthost,struct Cns_sr
 	}else{
 		marshall_LONG(sbp, res);	
 	}
-	sendrep (thip->s, MSG_DATA, sbp - repbuf, repbuf);	
-	free(bitmap);
-       	free(file_tmp);
-	free(buff);
-	free(repbuf);
+	sendrep (thip->s, MSG_DATA, sbp - repbuf, repbuf);
+        free(bitmap);
+        free(file_tmp);
+        free(buff);
+        free(repbuf);
 	return res;
 		
 }
@@ -4614,8 +4494,8 @@ int Cns_srv_read_t(int magic,char *req_data,char *clienthost,struct Cns_srv_thre
 		free(repbuf);
                 return (SENAMETOOLONG);
 	}
-        unmarshall_LONG (rbp, size);
-	unmarshall_LONG (rbp, offset);
+        unmarshall_HYPER (rbp, size);
+	unmarshall_HYPER (rbp, offset);
 	unmarshall_STRING (rbp, remote_path);
         sprintf (logbuf, "read_t %o %s", offset, path);
         Cns_logreq (func, logbuf);
@@ -4764,7 +4644,7 @@ int virfile(const char *path, int filesize, int flag){
 	close(fd);   //关闭文件描述符  
 	return 0;
 }
-int dohash(char *file, char *actual_path, int filesize, int flag){
+int dohash(char *file, char *actual_path, size_t filesize, int flag){
         char dir[100];
         int fd;
         int hashcode=RSHash(file);
@@ -4787,14 +4667,15 @@ int dohash(char *file, char *actual_path, int filesize, int flag){
                 return -errno;
         }
 	if(flag==0){
-        	fallocate(fd, 0, 0, filesize);
+//        	fallocate(fd, 0, 0, filesize);
+		fallocate(fd, 0, 0, 0);
 	}       
 	close(fd);	
         return 0;
 }
 int Cns_srv_createfile_t (int magic,char *req_data,char *clienthost,struct Cns_srv_thread_info *thip)
 {
-        int size;
+        size_t size;
         u_signed64 cwd;
         char func[16];
         gid_t gid;
@@ -4815,7 +4696,7 @@ int Cns_srv_createfile_t (int magic,char *req_data,char *clienthost,struct Cns_s
         unmarshall_HYPER (rbp, cwd);
         if (unmarshall_STRINGN (rbp, path, CA_MAXPATHLEN+1))
                 return (SENAMETOOLONG);
-	unmarshall_LONG (rbp, size);
+	unmarshall_HYPER (rbp, size);
         sprintf (logbuf, "createfile_t %o %s", size, path);
         Cns_logreq (func, logbuf);
 
@@ -4884,7 +4765,7 @@ int Cns_srv_touch_t (int magic,char *req_data,char *clienthost,struct Cns_srv_th
 	char basename[CA_MAXPATHLEN];
         char *path_t=(char *)malloc(CA_MAXPATHLEN+1);
         int fd;
-        int segsize;
+        size_t segsize;
         int mode;
 
 	strcpy(func, "Cns_srv_touch_t");
@@ -5055,3 +4936,589 @@ int Cns_srv_getattr_id(int magic,char *req_data,char *clienthost,struct Cns_srv_
         return 0;
 }
 
+int uploadfile(char *host, char *from , char *to, char *uid, char *gid, char *py_module_path)
+{
+        char func[20];
+        strcpy(func, "uploadfile");
+        nslogit(func, "start\n");
+        int t=0;
+        int nHold=PyGILState_Check();
+        PyGILState_STATE gstate;
+        if(!nHold){
+                gstate = PyGILState_Ensure();
+        }
+        Py_BEGIN_ALLOW_THREADS
+        Py_BLOCK_THREADS
+
+        PyObject * pModule = NULL;
+        PyRun_SimpleString("import sys, os, string");
+        char do_append[128];
+        strcpy(do_append, "sys.path.append('");
+        strcat(do_append, py_module_path);
+        strcat(do_append, "')");
+        PyRun_SimpleString(do_append);
+        pModule = PyImport_ImportModule("up");
+        if(pModule == NULL)
+        {
+                nslogit(func, "upload model load failed\n");
+		return -1;
+        }
+
+        PyObject * pFunc = NULL;
+        PyObject * result = NULL;
+        PyObject *pArgs = PyTuple_New(5);
+        PyTuple_SetItem(pArgs,0,Py_BuildValue("s",host));
+        PyTuple_SetItem(pArgs,1,Py_BuildValue("s",from));
+        PyTuple_SetItem(pArgs,2,Py_BuildValue("s",to));
+	PyTuple_SetItem(pArgs,3,Py_BuildValue("s",uid));
+	PyTuple_SetItem(pArgs,4,Py_BuildValue("s",gid));
+        pFunc = PyObject_GetAttrString(pModule,"uploadentrance");
+        if(pFunc == NULL)
+        {
+                nslogit(func, "client function parameter post failed\n");
+		return -1;
+        }
+        result = PyEval_CallObject(pFunc,pArgs);
+        if(result == NULL){
+                nslogit(func, "client function call failed\n");
+		return -1;
+        }else{
+                PyArg_Parse(result, "i",&t);
+	}
+        Py_DECREF(pArgs);
+        Py_DECREF(result);
+        Py_DECREF(pFunc);
+        Py_DECREF(pModule);
+        Py_UNBLOCK_THREADS
+        Py_END_ALLOW_THREADS
+        if(!nHold){
+                PyGILState_Release(gstate);
+        }
+        nslogit(func, "uploadfile over\n");
+	return t;	
+}
+
+void computesize(u_signed64 size)
+{
+
+        pthread_mutex_lock (&size_lock);
+        total_bytes += size;
+        pthread_mutex_unlock (&size_lock);
+}
+
+
+int copyfile(int fd_in, int fd_out, size_t size, off_t offset)
+{
+        size_t nbread_tot = 0;
+        size_t nbread;
+        size_t nbwrite_tot = 0;
+        size_t nbwrite;
+        size_t nbtoread;
+        off_t off_in = offset;
+        off_t off_out = offset;
+        char *buf = (char *)malloc(BUFLEN);
+        if (!buf) {
+                fprintf(stderr, "Failed to allocate memory %s\n", strerror(errno));
+                return -1;
+        }
+        do {
+                bzero(buf, BUFLEN);
+                nbtoread = size - nbread_tot;
+                if (nbtoread <= 0) break;
+                if (nbtoread > BUFLEN)
+                        nbtoread = BUFLEN;
+                nbread = pread(fd_in, buf, nbtoread, off_in);
+                if (nbread < 0) {
+                        fprintf(stderr, "Failed to read srcfile offset:%lu %s\n", offset, strerror(errno));
+                        return -1;
+                }
+                if (nbread == 0) {
+                        off_t curoff = lseek(fd_in, 0, SEEK_CUR);
+                        printf("DEBUG1: read %lu bytes of size %lu offset(%lu:%lu) fd(%d:%d)\n", nbread_tot, size, offset, curoff, fd_in, fd_out);
+                        break;
+                }
+                off_in += nbread;
+                computesize(nbread);
+                nbread_tot += nbread;
+                nbwrite_tot = 0;
+                do {
+                        nbwrite = pwrite(fd_out, buf, nbread - nbwrite_tot, off_out);
+                        if (nbwrite < 0) {
+                                fprintf(stderr, "Failed to write dstfile offset:%lu, %s\n", offset, strerror(errno));
+                                return -1;
+                        }
+                        off_out += nbwrite;
+                        nbwrite_tot += nbwrite;
+                } while (nbwrite_tot < nbread);
+        } while (nbread_tot < size);
+        free(buf);
+        return 0;
+}
+
+
+void *ProcCopy (void *arg)
+{
+        struct mProcArg *thisarg = (struct mProcArg *) arg;
+        int fd_in = thisarg->fd_in;
+        int fd_out = thisarg->fd_out;
+        size_t size = thisarg->size;
+        off_t offset = thisarg->offset;
+        int ret;
+        int *rret = (int *)malloc(sizeof(int));
+        ret = copyfile(fd_in, fd_out, size, offset);
+        memcpy(rret,  &ret, sizeof(int));
+        pthread_exit((void *)rret);
+        return NULL;
+}
+
+int f_cp_fd(char *actual_path, char *fullpath, size_t filesize)
+{
+        size_t len, nbwrite;
+        int res = 0;
+        int nbtoread = 0;
+        struct stat stbuf;
+        struct mProcArg myarg[THREAD_NUM];
+        pthread_t threadid[THREAD_NUM];
+        void *status[THREAD_NUM];
+        int fd_in;
+        int fd_out;
+        size_t bucksize;
+        int i;
+        char *buff = (char *)malloc(BUFLEN);
+        if (!buff) {
+                fprintf(stderr, "Failed to allocate buffer %s\n", strerror(errno));
+                return -1;
+        }
+
+        if((fd_in = open(actual_path, O_RDONLY))==NULL){
+                fprintf(stderr,"open data_dir %s failure %s\n", actual_path, strerror(errno));
+                return -1;
+        }
+        if((fd_out = open(fullpath, O_WRONLY))==NULL){
+                fprintf(stderr,"open target_file %s failure %s\n", fullpath, strerror(errno));
+                return -1;
+        }
+        if ((filesize < SMALLSIZE)) {
+                res =  copyfile(fd_in, fd_out, filesize, 0);
+                goto _COPY_DONE;
+        }
+        pthread_mutex_init (&size_lock, NULL);
+        bucksize = (size_t)ceil(stbuf.st_size/THREAD_NUM);
+        for (i = 0; i < THREAD_NUM; i++) {
+                myarg[i].fd_in = fd_in;
+                myarg[i].fd_out = fd_out;
+                myarg[i].offset = bucksize*i;
+                if (i == (THREAD_NUM - 1))
+                        myarg[i].size = filesize - bucksize*i;
+                else
+                        myarg[i].size = bucksize;
+                pthread_create (&threadid[i], NULL, ProcCopy, &myarg[i]);
+        }
+        for (i = 0; i < THREAD_NUM; i++) {
+                pthread_join (threadid[i], (void **)&status[i]);
+		free(status[i]);
+        }
+        pthread_mutex_destroy (&size_lock);
+_COPY_DONE:
+        stopflag = 1;
+        close(fd_in);
+        close(fd_out);
+        free(buff);
+        return res;
+}
+
+
+int Cns_srv_rfsync (int magic,char *req_data,char *clienthost,struct Cns_srv_thread_info *thip, char *py_module_path)
+{
+	int res=0;
+	int c;
+	Cns_dbrec_addr rec_addr;
+        u_signed64 cwd;
+        char func[19];
+	char tmpbuf[21];
+        gid_t gid;
+        char logbuf[CA_MAXPATHLEN+12];
+        char *rbp;
+        char repbuf[CA_MAXCOMMENTLEN+1];
+        char *sbp;
+        uid_t uid;
+        char from[CA_MAXPATHLEN+1];
+	char to[CA_MAXPATHLEN+1];
+	char tmp[CA_MAXCOMMENTLEN+1];
+	char basename[CA_MAXPATHLEN+1];
+	char actual_path[CA_MAXPATHLEN+1];
+	char uid_c[64];
+	char gid_c[64];
+	struct stat st_buf;
+	struct Cns_file_metadata filentry;
+	struct Cns_file_metadata filentry_old;
+	struct Cns_file_metadata parent_dir;
+	int bitmap_num;
+	
+        strcpy(func, "Cns_srv_rfsync");
+        rbp=req_data;
+        unmarshall_LONG (rbp, uid);
+        unmarshall_LONG (rbp, gid);
+        nslogit (func, NS092, "Cns_srv_rfsync", uid, gid, clienthost);
+        unmarshall_HYPER (rbp, cwd);
+        unmarshall_STRING (rbp, from);
+	unmarshall_STRING (rbp, to);
+        sprintf(logbuf, "from %s to %s fileid",from, to);
+        Cns_logreq(func, logbuf);
+	sprintf(uid_c, "%d", uid);
+	sprintf(gid_c, "%d", gid);
+        struct timeval start,end;
+        float et;
+        char msg[1024];
+        gettimeofday(&start,0);
+        sprintf(msg, "start time: %d.%d\n", start.tv_sec, start.tv_usec);
+        nslogit(func, "begin upload %s\n", msg);
+	
+        res=lstat(from, &st_buf);
+        if(res!=0){
+                nslogit(func, "stat %s  failed\n", from);
+                return 1;
+        }
+
+	/*up to cache*/
+	res=dohash(from, actual_path, st_buf.st_size, 0);
+	if(res!=0){
+		nslogit(func, "dohash %s  failed\n", from);
+		return 1;
+	}		
+	res=f_cp_fd(from, actual_path, st_buf.st_size);	
+	if(res!=0){
+		nslogit(func, "f_cp_cd  from %s to %s failed\n", from, actual_path);
+		return 1;
+	}
+	
+	/*update metadata*/
+	if(res==0){
+		strcpy(tmp, to);
+		if (Cns_splitname (cwd, tmp, basename))
+			return (serrno);		
+		if(res==0){
+			filentry.uid=st_buf.st_uid;
+			filentry.gid=st_buf.st_gid;
+			filentry.ino=st_buf.st_ino;
+			filentry.mtime=st_buf.st_mtime;
+			filentry.ctime=st_buf.st_ctime;
+			filentry.atime=st_buf.st_atime;
+			filentry.nlink=st_buf.st_nlink;
+			filentry.dev=st_buf.st_dev;
+			strcpy(filentry.path, tmp);
+			filentry.filesize=st_buf.st_size;
+			filentry.filemode=st_buf.st_mode;
+			strcpy(filentry.name,basename);
+			//      get parent_Dir
+			strcpy(parent_dir.path, tmp);
+			if (Cns_splitname (cwd, parent_dir.path, parent_dir.name))
+                        	return (serrno);
+			c = Cns_get_ftmd_by_fullpath (&thip->dbfd, parent_dir.path, parent_dir.name, &parent_dir, 0, &rec_addr);
+        		if (c  && serrno != ENOENT)
+                               return (serrno);
+        		if(c==0){
+                		nslogit (func,"parent_dir: %s/%s exits\n",parent_dir.path,parent_dir.name);
+        		}else{
+				nslogit (func,"parent_dir: %s/%s not exits\n",parent_dir.path,parent_dir.name);
+				return 1;
+        		}
+			//check if the file exists already
+			c = Cns_get_ftmd_by_fullpath (&thip->dbfd, filentry.path, filentry.name, &filentry_old, 0, &rec_addr);
+        		if (c && serrno != ENOENT)
+                		return (serrno);
+		        if(c==0){/*exist*/
+ 				nslogit (func, "uploadfile %s exist\n",  filentry.name);
+				return 1;
+		        }else{ /*not exist*/
+				if(Cns_unique_transform_id(&thip->dbfd, &filentry.fileid)<0)
+                        		return (serrno);
+				filentry.parent_fileid=parent_dir.fileid;
+                		filentry.fileclass=parent_dir.fileclass;
+                		filentry.status='u';
+                		/*write new file entry*/
+                		if(Cns_insert_ftmd_entry(&thip->dbfd, &filentry))
+                        		return (serrno);
+				bitmap_num=filentry.filesize/UNIT_SIZE;
+				if(filentry.filesize%UNIT_SIZE!=0)
+					bitmap_num+=1;
+				char *bitmap=(char *)malloc(bitmap_num+1);
+				memset(bitmap, '2', bitmap_num);
+				bitmap[bitmap_num]='\0';
+				if(Cns_set_t_filebitmap(&thip->dbfd, filentry.path, filentry.name, bitmap)){
+					nslogit (func, "setbitmap %s/%s failed\n",  filentry.path, filentry.name);
+					return 1;
+				}
+				if(Cns_set_t_segmeta(&thip->dbfd, filentry.path, filentry.name, filentry.fileid, filentry.filesize, actual_path)){
+					nslogit (func, "setsegmeta %s/%s failed\n",  filentry.path, filentry.name);
+					return 1;
+				}	
+//                		memset ((char *) &filentry, 0, sizeof(filentry));
+                		nslogit (func, "file %s upload sucess\n", u64tostr (filentry.fileid, tmpbuf, 0));
+      			}		
+	
+		}
+	}	
+	sbp=repbuf;
+	marshall_LONG(sbp,res);
+	sendrep (thip->s, MSG_DATA, sbp - repbuf, repbuf);
+
+	/*up to remote station*/
+        res=uploadfile("202.122.37.90:28003", from, to, uid_c, gid_c, py_module_path);
+	if(res!=0){
+		nslogit(func, "upload to remote station failed %s\n", to);
+	}
+        gettimeofday(&end,0);
+        et=end.tv_sec*1000+end.tv_usec/1000-start.tv_sec*1000-start.tv_usec/1000;
+        sprintf(msg, "end time: %d.%d used time %.2f(ms)\n", end.tv_sec, end.tv_usec, et);
+        nslogit(func, "end upload %s\n", msg);
+
+	if(res==-1)
+		return 1;
+	else 
+		return 0;
+}
+
+int Cns_srv_refreshcache(int magic,char *req_data,char *clienthost,struct Cns_srv_thread_info *thip)
+{
+	int res=0;
+	int fd;
+	int flag=0;
+	size_t filesize;
+	int bitmap_num;
+        u_signed64 cwd;
+        char func[19];
+        gid_t gid;
+        char logbuf[CA_MAXPATHLEN+12];
+        char *rbp;
+        char repbuf[CA_MAXCOMMENTLEN+1];
+        char *sbp;
+        uid_t uid;
+        char cachefile[CA_MAXPATHLEN+1];
+        char sourcefile[CA_MAXPATHLEN+1];
+	char basename[CA_MAXPATHLEN+1];
+        strcpy(func, "Cns_srv_refeshcache");
+
+        rbp=req_data;
+        unmarshall_LONG (rbp, uid);
+        unmarshall_LONG (rbp, gid);
+        nslogit (func, NS092, "Cns_srv_refreshcache", uid, gid, clienthost);
+        unmarshall_HYPER (rbp, cwd);
+        unmarshall_STRING (rbp, cachefile);
+        unmarshall_STRING (rbp, sourcefile);
+	unmarshall_HYPER (rbp, filesize);
+        sprintf(logbuf, "rereshcache to file %s",sourcefile);
+        Cns_logreq(func, logbuf);
+	
+	if(Cns_splitname (cwd, sourcefile, basename))
+		return (serrno);
+        bitmap_num=filesize/UNIT_SIZE;
+        if(filesize%UNIT_SIZE!=0)
+                bitmap_num+=1;
+        char *bitmap=(char *)malloc(bitmap_num+1);
+        memset(bitmap, '\0', bitmap_num+1);
+	if(Cns_get_bitmap(&thip->dbfd, sourcefile, basename, bitmap)){
+		sprintf(logbuf, "get bitmap failed %s",sourcefile);
+		Cns_logreq(func, logbuf);
+		return 1;
+	}
+	for(int i=0; i<bitmap_num; i++){
+		if(bitmap[i]=='2'){
+			memset(bitmap, '0', bitmap_num);
+			bitmap[bitmap_num]='\0';
+			flag=1;
+			if(Cns_set_t_filebitmap(&thip->dbfd, sourcefile, basename, bitmap)){
+				sprintf(logbuf, "set bitmap failed %s",sourcefile);
+				Cns_logreq(func, logbuf);
+				return 1;
+			}
+			break;
+		}
+	}	
+	if(flag){
+		fd=open(cachefile, O_WRONLY|O_TRUNC);
+		if(fd < 0){
+			sprintf(logbuf, "ERROR:  cachefile lost-- %s",cachefile);
+			Cns_logreq(func, logbuf);
+			res=-1;
+		}
+		if(ftruncate(fd,filesize)<0){
+			sprintf(logbuf, "ERROR:  Nospace to get cacchefile-- %s",cachefile);
+			Cns_logreq(func, logbuf);
+			close(fd);
+			res=-1;
+		}
+	}
+        sbp=repbuf;
+        marshall_LONG(sbp,res);
+        sendrep (thip->s, MSG_DATA, sbp - repbuf, repbuf);
+	return res;
+}
+
+int Cns_srv_set_metadata(int magic,char *req_data,char *clienthost,struct Cns_srv_thread_info *thip)
+{
+        int res=0;
+	int c=0;
+	int mounttag=0;
+        u_signed64 cwd;
+        char func[19];
+        char logbuf[CA_MAXPATHLEN+12];
+        char *rbp;
+        char repbuf[CA_MAXCOMMENTLEN+1];
+        char *sbp;
+	Cns_dbrec_addr rec_addr;
+	struct Cns_file_metadata filentry;
+	struct Cns_file_metadata parent_dir;
+	struct Cns_file_metadata filentry_old;
+	char basename[CA_MAXPATHLEN+1];
+
+
+        strcpy(func, "Cns_srv_set_metadata");
+        rbp=req_data;
+	unmarshall_HYPER (rbp, cwd);
+        unmarshall_LONG (rbp, filentry.uid);
+        unmarshall_LONG (rbp, filentry.gid);
+        unmarshall_HYPER (rbp, filentry.ino);
+        unmarshall_TIME_T (rbp, filentry.mtime);
+        unmarshall_TIME_T (rbp, filentry.ctime);
+        unmarshall_TIME_T (rbp, filentry.atime);
+        unmarshall_LONG (rbp, filentry.nlink);
+        unmarshall_LONG (rbp, filentry.dev);
+        unmarshall_STRING (rbp, filentry.path);
+        unmarshall_HYPER (rbp, filentry.filesize);
+        unmarshall_WORD (rbp, filentry.filemode);
+        unmarshall_STRING (rbp, filentry.name);
+        nslogit (func, NS092, "Cns_srv_set_metadata", filentry.uid, filentry.gid, clienthost);
+
+        sprintf(logbuf, "set metadata to %s", filentry.path);
+        Cns_logreq(func, logbuf);
+        if(Cns_splitname (cwd, filentry.path, basename))
+                return (serrno);
+	strcpy(parent_dir.path, filentry.path);
+	if (Cns_splitname (cwd, parent_dir.path, parent_dir.name))
+                return (serrno);
+        c = Cns_get_ftmd_by_fullpath (&thip->dbfd, parent_dir.path, parent_dir.name, &parent_dir, 0, &rec_addr);
+        if (c  && serrno != ENOENT)
+                               return (serrno);
+        if(c==0){
+                sprintf (logbuf, "%s parent_dir exits", filentry.path);
+        }else{
+		mounttag=1;
+                parent_dir.fileclass=0;
+/*
+                if(Cns_unique_transform_id(&thip->dbfd, &parent_dir.fileid)<0)
+                        return (serrno);
+*/
+		parent_dir.fileid = 1;
+        }
+        c = Cns_get_ftmd_by_fullpath (&thip->dbfd, filentry.path, filentry.name, &filentry_old, 0, &rec_addr);
+        if (c && serrno != ENOENT)
+                return (serrno);
+	if(c==0){
+                filentry.fileid=filentry_old.fileid;
+                filentry.parent_fileid=filentry_old.parent_fileid;
+                filentry.fileclass=filentry_old.fileclass;
+                filentry.status=filentry_old.status;
+                res=Cns_update_ftmd_entry(&thip->dbfd, &rec_addr,&filentry);
+		nslogit (func, "file %s exist\n",  filentry.name);
+	}else{
+                if(Cns_unique_transform_id(&thip->dbfd, &filentry.fileid)<0)
+                        return (serrno);
+                filentry.parent_fileid=parent_dir.fileid;
+                filentry.fileclass=parent_dir.fileclass;
+                filentry.status='-';
+                /*write new file entry*/
+                res=Cns_insert_ftmd_entry(&thip->dbfd, &filentry);
+                nslogit (func, "file %s/%s insert\n", filentry.path, filentry.name);
+	}
+
+        sbp=repbuf;
+        marshall_LONG(sbp,res);
+        sendrep (thip->s, MSG_DATA, sbp - repbuf, repbuf);
+        return 0;
+}
+
+int Cns_srv_unlink_t(int magic,char *req_data,char *clienthost,struct Cns_srv_thread_info *thip)
+{
+	char func[16];
+	uid_t uid;
+	gid_t gid;
+	char *rbp;
+	char *sbp;
+	u_signed64 cwd;
+	char path[CA_MAXPATHLEN+1];
+	char name[CA_MAXPATHLEN+1];
+	char logbuf[CA_MAXPATHLEN+8];
+	char repbuf[CA_MAXCOMMENTLEN+1];
+	int fileid;
+	size_t filesize;
+	int mode;
+	int res;
+	queue <int> dirlist;
+	int fileid_tmp;
+	char *dirlist_tmp=(char *)malloc(1000);
+
+	strcpy(func, "Cns_srv_unlink_t");
+        rbp = req_data;
+        unmarshall_LONG (rbp, uid);
+        unmarshall_LONG (rbp, gid);
+        nslogit (func, NS092, "unlink_t", uid, gid, clienthost);
+        unmarshall_HYPER (rbp, cwd);
+	unmarshall_STRING(rbp, path);
+	unmarshall_STRING(rbp, name);
+	sprintf (logbuf, "unlink_t %s/%s", path, name);
+	Cns_logreq (func, logbuf);
+	if(*name=='/')
+		return EINVAL;
+	(void) Cns_start_tr (thip->s, &thip->dbfd);
+	res=Cns_get_t_filemeta(&thip->dbfd, path, name, &fileid, &filesize, &mode);
+	if(!res){
+		dirlist.push(fileid);
+		while(!dirlist.empty()){
+			struct Cns_file_metadata st;
+			char actual_path[CA_MAXPATHLEN+1];
+			int id=dirlist.front();
+			char *pos;
+			char *delims={","};
+			dirlist.pop();
+			res=Cns_get_ftmd_by_fileid( &thip->dbfd, id, &st);
+			if(res)
+				return 1;
+			if(st.filemode & S_IFDIR){
+				res=Cns_delete_ftmd_entry_byfid(&thip->dbfd, id);
+				if(!res){
+					res=Cns_get_dirlist_by_parent_fileid(&thip->dbfd, id, dirlist_tmp);
+					if(!res){
+						pos=strtok(dirlist_tmp, delims);
+						while(pos!=NULL){
+							int i=atoi(pos);
+							dirlist.push(i);
+							pos=strtok(NULL, delims);
+						}		
+					}else
+						return 1;
+				}else
+					return 1;
+				
+			}else{
+				res=Cns_delete_ftmd_entry_byfid(&thip->dbfd, id);
+				if(!res){
+					if(res=Cns_get_t_filepath(&thip->dbfd, id, actual_path)){
+						nslogit(func, "no data block %s\n", actual_path);
+					}else{
+						remove(actual_path);
+						res=Cns_delete_stmd_entry_byfid(&thip->dbfd, id);
+					}
+					
+				}else
+					return 1;
+			}
+		}
+		
+	}
+        sbp=repbuf;
+        marshall_LONG(sbp,res);
+        sendrep (thip->s, MSG_DATA, sbp - repbuf, repbuf);
+	free(dirlist_tmp);
+	return res;
+}
