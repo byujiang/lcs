@@ -45,7 +45,7 @@ int proc(void){
 	int mountdirnum=0;
 
         if(get_conf_value(conf_file, "DATA_SERVER_IP", ip)){
-                fprintf(stderr, "Configyre file has no server IP\n");
+                fprintf(stderr, "Configure file has no server IP\n");
                 return -1;
         }
         if(get_conf_value(conf_file, "DATA_SERVER_CONSOL", consol)){

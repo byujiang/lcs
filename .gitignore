@@ -13,6 +13,7 @@
 *.a
 *.la
 *.lo
+lib/libns.a
 
 # Shared objects (inc. Windows DLLs)
 *.dll
@@ -28,17 +29,6 @@ bin/
 *.i*86
 *.x86_64
 *.hex
-ns/Data_daemon
-ns/iget
-ns/ilist
-ns/iput
-ns/nscat
-ns/nschclass
-ns/nschmod
-ns/nschown
-ns/nsdaemon
-ns/nsdelactualpath
-ns/sen
 
 # Debug files
 *.dSYM/
@@ -57,3 +47,7 @@ ns/man
 web
 # Transfer
 transfer
+
+
+# python bytecode
+ns/__pycache__

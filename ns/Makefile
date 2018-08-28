@@ -8,8 +8,8 @@
 #
 
 #  Default rules for Make          Linux
-CC = g++ -fPIC -D_LARGEFILE64_SOURCE -g -w -O3
-CXX += -fPIC -D_LARGEFILE64_SOURCE -g -O3
+CC = g++ -fPIC -D_LARGEFILE64_SOURCE -g -w -O2
+CXX += -fPIC -D_LARGEFILE64_SOURCE -g -O2
 MTCCFLAGS = -pthread  -DCTHREAD_LINUX -D_THREAD_SAFE -D_REENTRANT
 MTLDLIBS =
 MTLDFLAGS = -pthread
@@ -56,11 +56,11 @@ NSLIB = -L. -lns
 
 PYFLAGS = -DPY36
 
-SPOOL = /usr/spool/ns
+SPOOL = /varr/spool/ns
 LOGFILE = $(SPOOL)/log
 
-SACCTDIR = /usr/spool/sacct
-SACCTFILE = /usr/spool/sacct/sacct
+SACCTDIR = /var/spool/sacct
+SACCTFILE = /var/spool/sacct/sacct
 ACCTFILE = -DACCTFILE=\"$(SACCTFILE)\"
 
 NSCONFIG = /etc/NSCONFIG
